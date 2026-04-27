@@ -1,13 +1,17 @@
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useEffect, useRef, useState } from 'react';
 import {
+    ActivityIndicator,
+    Alert,
     SafeAreaView,
     StyleSheet,
     Text, TextInput,
     TouchableOpacity,
     View
 } from 'react-native';
+import { verifyOtpCode } from '../api/Auth';
 import { COLORS } from '../Composants/themeConfig';
+import { setAuthUser } from '../storage/authStorage';
 
 export default function OtpConfirmationScreen() {
   const route = useRoute();
@@ -16,6 +20,7 @@ export default function OtpConfirmationScreen() {
 
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const [timer, setTimer] = useState(30);
+  const [loading, setLoading] = useState(false);
   const inputs = useRef([]);
 
   // --- GESTION DU CHRONO ---
@@ -50,6 +55,33 @@ export default function OtpConfirmationScreen() {
       setTimer(30);
       // Appelle ici ton API verify_otp
       console.log("Code renvoyé !");
+    }
+  };
+
+  const handleContinue = async () => {
+    const code = otp.join('');
+    if (code.length < 6) return;
+
+    setLoading(true);
+    try {
+      const result = await verifyOtpCode(phoneNumber, code);
+
+      if (!result.ok) {
+        const errorMessage = result.error?.message || "Code invalide.";
+        Alert.alert('Erreur', errorMessage);
+        return;
+      }
+
+      await setAuthUser({ phoneNumber, ...result.data });
+
+      navigation.reset({
+        index: 0,
+        routes: [{ name: '(tabs)' }],
+      });
+    } catch {
+      Alert.alert('Erreur réseau', "Impossible de contacter le serveur.");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -94,10 +126,14 @@ export default function OtpConfirmationScreen() {
         {/* BOUTON CONTINUER */}
         <TouchableOpacity 
           style={[styles.mainButton, otp.join('').length < 6 && { backgroundColor: '#9CA3AF' }]}
-          disabled={otp.join('').length < 6}
-          onPress={() => console.log("Code validé:", otp.join(''))}
+          disabled={otp.join('').length < 6 || loading}
+          onPress={handleContinue}
         >
-          <Text style={styles.mainButtonText}>Continuer</Text>
+          {loading ? (
+            <ActivityIndicator color="white" />
+          ) : (
+            <Text style={styles.mainButtonText}>Continuer</Text>
+          )}
         </TouchableOpacity>
 
       </View>
