@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Dimensions, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { COLORS } from '../Composants/themeConfig';
+import { COLORS } from '../../Composants/themeConfig';
 
 const { width, height } = Dimensions.get('window');
 

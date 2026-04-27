@@ -1,8 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { Dimensions, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import IMG1 from "../assets/scanIMG1.png";
-import { COLORS } from '../Composants/themeConfig';
+import IMG1 from "../../assets/scanIMG1.png";
+import { COLORS } from '../../Composants/themeConfig';
 
 const { width, height } = Dimensions.get('window');
 

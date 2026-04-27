@@ -1,8 +1,8 @@
 import { Ionicons } from '@expo/vector-icons'; // Inclus dans Expo
 import { Tabs } from 'expo-router';
 import { Image, TouchableOpacity } from 'react-native';
-import { COLORS } from '../Composants/themeConfig';
-import mapActionLogo from "../assets/LogoMapAction.png";
+import mapActionLogo from "../../assets/LogoMapAction.png";
+import { COLORS } from '../../Composants/themeConfig';
 
 export default function TabLayout() {
   return (
@@ -29,6 +29,7 @@ export default function TabLayout() {
         options={{
           title: 'Accueil',
           tabBarIcon: ({ color }) => <Ionicons name="home" size={24} color={color} />,
+          
         }}
       />
       <Tabs.Screen
@@ -36,6 +37,8 @@ export default function TabLayout() {
         options={{
           title: 'Scan',
           tabBarIcon: ({ color }) => <Ionicons name="scan-outline" size={24} color={color} />,
+          tabBarStyle: { display: 'none' }, // On le définit ici directement
+          headerShown: false,
         }}
       />
       <Tabs.Screen
