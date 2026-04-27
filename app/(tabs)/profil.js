@@ -1,11 +1,41 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useEffect, useState } from 'react';
 import { Dimensions, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { COLORS } from '../../Composants/themeConfig';
+import { clearAuthUser, getAuthUser } from '../../storage/authStorage';
+import Authentification from '../Authentification';
 
 const { width, height } = Dimensions.get('window');
 
 export default function ProfilScreen() {
-  
+  const [user, setUser] = useState(null);
+  const [isLoadingUser, setIsLoadingUser] = useState(true);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadUser = async () => {
+      try {
+        const parsed = await getAuthUser();
+        if (isMounted) setUser(parsed);
+      } catch {
+        if (isMounted) setUser(null);
+      } finally {
+        if (isMounted) setIsLoadingUser(false);
+      }
+    };
+
+    loadUser();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const handleLogout = async () => {
+    await clearAuthUser();
+    setUser(null);
+  };
 
   const MenuItem = ({ icon, title, color = COLORS.primary, onPress }) => (
     <TouchableOpacity style={styles.menuItem} onPress={onPress}>
@@ -16,6 +46,10 @@ export default function ProfilScreen() {
       <Ionicons name="chevron-forward" size={20} color={COLORS.gray1 || '#ccc'} />
     </TouchableOpacity>
   );
+
+  if (isLoadingUser) return <View style={styles.container} />;
+
+  if (!user) return <Authentification />;
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
@@ -31,7 +65,7 @@ export default function ProfilScreen() {
             <Ionicons name="camera" size={16} color={COLORS.white} />
           </TouchableOpacity>
         </View>
-        <Text style={styles.userName}>Hamidou Barry</Text>
+        <Text style={styles.userName}>{user?.name || user?.fullName || 'Utilisateur'}</Text>
       </View>
 
 
@@ -53,7 +87,7 @@ export default function ProfilScreen() {
         <Text style={styles.sectionTitle}>Connexion</Text>
         <View style={styles.sectionCard}>
           <MenuItem icon="trash-outline" title="Supprimer mon compte" />
-          <MenuItem icon="log-out-outline" title="Déconnexion" color="#FF4444" />
+          <MenuItem icon="log-out-outline" title="Déconnexion" color="#FF4444" onPress={handleLogout} />
         </View>
 
       </View>

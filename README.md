@@ -51,7 +51,7 @@ Before getting started, make sure you have the following:
 
 ### 1. Clone the project:
 ```bash
-git clone https://github.com/223MapAction/Map-Action-Mobile-App.git
+git clone https://github.com/223MapAction/MobileAppv2.git
 ```
 ### 2. Install dependencies:
 
