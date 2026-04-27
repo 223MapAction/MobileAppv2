@@ -3,8 +3,8 @@ import { useRouter } from 'expo-router';
 import { MotiView } from 'moti';
 import { useEffect } from 'react';
 import { Dimensions, StyleSheet, View } from 'react-native';
-import { COLORS } from './Composants/themeConfig';
-import Mapimg1 from "./assets/mapAction1.png";
+import Mapimg1 from "../assets/mapAction1.png";
+import { COLORS } from '../Composants/themeConfig';
 
 const { width, height } = Dimensions.get('window');
 
