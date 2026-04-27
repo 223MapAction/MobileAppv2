@@ -8,14 +8,14 @@ const apiEndPoint = ApiUrl + "/MapApi";
  */
 export const requestOtp = async (phoneNumber) => {
   try {
-    const response = await fetch(`${apiEndPoint}/verify_otp/`, {
+    const response = await fetch(`${apiEndPoint}/otpRequest/`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
       },
       body: JSON.stringify({
-        phone_number: phoneNumber, // Assure-toi que la clé correspond à ce qu'attend ton lead (souvent phone_number ou tel)
+        phone: phoneNumber,
       }),
     });
 
@@ -40,15 +40,15 @@ export const requestOtp = async (phoneNumber) => {
  */
 export const verifyOtpCode = async (phoneNumber, code) => {
   try {
-    const response = await fetch(`${apiEndPoint}/verify_otp/`, { // Ajuste l'URL selon ton backend
+    const response = await fetch(`${apiEndPoint}/verifyOtp/`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
       },
       body: JSON.stringify({
-        phone_number: phoneNumber,
-        otp_code: code,
+        phone: phoneNumber,
+        otp: code,
       }),
     });
 

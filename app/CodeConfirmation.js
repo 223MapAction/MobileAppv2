@@ -1,17 +1,17 @@
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useEffect, useRef, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    SafeAreaView,
-    StyleSheet,
-    Text, TextInput,
-    TouchableOpacity,
-    View
+  ActivityIndicator,
+  Alert,
+  SafeAreaView,
+  StyleSheet,
+  Text, TextInput,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import { verifyOtpCode } from '../api/Auth';
 import { COLORS } from '../Composants/themeConfig';
-import { setAuthUser } from '../storage/authStorage';
+import { setAuthToken, setAuthUser } from '../storage/authStorage';
 
 export default function OtpConfirmationScreen() {
   const route = useRoute();
@@ -72,13 +72,17 @@ export default function OtpConfirmationScreen() {
         return;
       }
 
-      await setAuthUser({ phoneNumber, ...result.data });
+      const { refresh, access, user } = result.data;
+
+      await setAuthToken({ refresh, access });
+      await setAuthUser(user);
 
       navigation.reset({
         index: 0,
         routes: [{ name: '(tabs)' }],
       });
-    } catch {
+    } catch (error) {
+      console.error('Error during OTP verification:', error);
       Alert.alert('Erreur réseau', "Impossible de contacter le serveur.");
     } finally {
       setLoading(false);
