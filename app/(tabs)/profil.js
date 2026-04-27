@@ -1,8 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useState } from 'react';
-import { Dimensions, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Dimensions, Image, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { COLORS } from '../../Composants/themeConfig';
-import { clearAuthUser, getAuthUser } from '../../storage/authStorage';
+import { clearAuthToken, clearAuthUser, getAuthUser } from '../../storage/authStorage';
 import Authentification from '../Authentification';
 
 const { width, height } = Dimensions.get('window');
@@ -10,6 +10,7 @@ const { width, height } = Dimensions.get('window');
 export default function ProfilScreen() {
   const [user, setUser] = useState(null);
   const [isLoadingUser, setIsLoadingUser] = useState(true);
+  const [isPersonalInfoOpen, setIsPersonalInfoOpen] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -34,8 +35,15 @@ export default function ProfilScreen() {
 
   const handleLogout = async () => {
     await clearAuthUser();
+    await clearAuthToken();
     setUser(null);
   };
+
+  const firstName = (user?.first_name || '').trim();
+  const lastName = (user?.last_name || '').trim();
+  const fullName = `${firstName} ${lastName}`.trim() || user?.email || 'Utilisateur';
+  const avatarUrl = user?.avatar || null;
+  const initials = `${firstName?.[0] || ''}${lastName?.[0] || ''}`.toUpperCase() || `${user?.email?.[0] || ''}`.toUpperCase();
 
   const MenuItem = ({ icon, title, color = COLORS.primary, onPress }) => (
     <TouchableOpacity style={styles.menuItem} onPress={onPress}>
@@ -57,15 +65,18 @@ export default function ProfilScreen() {
 
       <View style={styles.header}>
         <View style={styles.imageContainer}>
-          <Image 
-            source={{ uri: 'https://media.licdn.com/dms/image/v2/D4D03AQFx8LLGwRZKiw/profile-displayphoto-scale_400_400/B4DZ15XCNVIEAg-/0/1775857576684?e=1777507200&v=beta&t=BxfRd-kXNjFzkeMVbyjIul8mR-uwPuPW3kVmUbExryA' }} // Remplace par ton image locale si besoin
-            style={styles.profileImage}
-          />
+          {avatarUrl ? (
+            <Image source={{ uri: avatarUrl }} style={styles.profileImage} />
+          ) : (
+            <View style={styles.profileImageFallback}>
+              <Text style={styles.profileImageFallbackText}>{initials || 'U'}</Text>
+            </View>
+          )}
           <TouchableOpacity style={styles.editBadge}>
             <Ionicons name="camera" size={16} color={COLORS.white} />
           </TouchableOpacity>
         </View>
-        <Text style={styles.userName}>{user?.name || user?.fullName || 'Utilisateur'}</Text>
+        <Text style={styles.userName}>{fullName}</Text>
       </View>
 
 
@@ -73,7 +84,7 @@ export default function ProfilScreen() {
         
         <Text style={styles.sectionTitle}>Compte</Text>
         <View style={styles.sectionCard}>
-          <MenuItem icon="person-outline" title="Information personnelle" />
+          <MenuItem icon="person-outline" title="Information personnelle" onPress={() => setIsPersonalInfoOpen(true)} />
           <MenuItem icon="information-circle-outline" title="À propos de nous" />
         </View>
 
@@ -93,6 +104,53 @@ export default function ProfilScreen() {
       </View>
 
       <View style={{ height: 40 }} />
+
+      <Modal
+        visible={isPersonalInfoOpen}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setIsPersonalInfoOpen(false)}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            <View style={styles.modalHeaderRow}>
+              <Text style={styles.modalTitle}>Informations personnelles</Text>
+              <TouchableOpacity onPress={() => setIsPersonalInfoOpen(false)}>
+                <Ionicons name="close" size={24} color={COLORS.secondary} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.modalRow}>
+              <Text style={styles.modalLabel}>Nom</Text>
+              <Text style={styles.modalValue}>{fullName}</Text>
+            </View>
+            <View style={styles.modalRow}>
+              <Text style={styles.modalLabel}>Email</Text>
+              <Text style={styles.modalValue}>{user?.email || '-'}</Text>
+            </View>
+            <View style={styles.modalRow}>
+              <Text style={styles.modalLabel}>Téléphone</Text>
+              <Text style={styles.modalValue}>{user?.phone || '-'}</Text>
+            </View>
+            <View style={styles.modalRow}>
+              <Text style={styles.modalLabel}>Adresse</Text>
+              <Text style={styles.modalValue}>{user?.address || '-'}</Text>
+            </View>
+            <View style={styles.modalRow}>
+              <Text style={styles.modalLabel}>Type</Text>
+              <Text style={styles.modalValue}>{user?.user_type || '-'}</Text>
+            </View>
+            <View style={styles.modalRow}>
+              <Text style={styles.modalLabel}>Points</Text>
+              <Text style={styles.modalValue}>{String(user?.points ?? 0)}</Text>
+            </View>
+
+            <TouchableOpacity style={styles.modalCloseBtn} onPress={() => setIsPersonalInfoOpen(false)}>
+              <Text style={styles.modalCloseBtnText}>Fermer</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 }
@@ -117,6 +175,21 @@ const styles = StyleSheet.create({
     borderRadius: (width * 0.25) / 2,
     borderWidth: 3,
     borderColor: COLORS.primary,
+  },
+  profileImageFallback: {
+    width: width * 0.25,
+    height: width * 0.25,
+    borderRadius: (width * 0.25) / 2,
+    borderWidth: 3,
+    borderColor: COLORS.primary,
+    backgroundColor: COLORS.white,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  profileImageFallbackText: {
+    fontSize: width * 0.07,
+    fontWeight: 'bold',
+    color: COLORS.secondary,
   },
   editBadge: {
     position: 'absolute',
@@ -174,5 +247,56 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginLeft: 15,
     fontWeight: '500',
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'flex-end',
+  },
+  modalCard: {
+    backgroundColor: COLORS.white,
+    padding: 20,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+  },
+  modalHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 15,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: COLORS.secondary,
+  },
+  modalRow: {
+    paddingVertical: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: COLORS.gray2,
+  },
+  modalLabel: {
+    fontSize: 12,
+    color: COLORS.gray1,
+    marginBottom: 4,
+    textTransform: 'uppercase',
+    fontWeight: '600',
+  },
+  modalValue: {
+    fontSize: 16,
+    color: COLORS.secondary,
+    fontWeight: '500',
+  },
+  modalCloseBtn: {
+    marginTop: 18,
+    backgroundColor: COLORS.primary,
+    paddingVertical: 14,
+    borderRadius: 14,
+    alignItems: 'center',
+  },
+  modalCloseBtnText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 });
