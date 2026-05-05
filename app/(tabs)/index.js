@@ -1,12 +1,15 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
+import { useRouter } from 'expo-router';
 import { Dimensions, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import IMG1 from "../../assets/scanIMG1.png";
 import { COLORS } from '../../Composants/themeConfig';
 
 const { width, height } = Dimensions.get('window');
 
+
 export default function HomeScreen() {
+  const router = useRouter();
   return (
     <View style={styles.container}>
       <Image 
@@ -23,7 +26,7 @@ export default function HomeScreen() {
         <TouchableOpacity 
           style={styles.scanButton}
           activeOpacity={0.8}
-          // onPress={() => console.log("Lancement du scan...")}
+          onPress={() => router.push('/scan')}
         >
         <View style={styles.buttonContent}>
             <Ionicons name="scan-outline" size={24} color={COLORS.white} style={styles.buttonIcon} />

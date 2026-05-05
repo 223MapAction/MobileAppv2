@@ -1,5 +1,6 @@
 import { FontAwesome } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
   ActivityIndicator,
@@ -21,10 +22,11 @@ const { width } = Dimensions.get('window');
 
 export default function LoginScreen() {
   const navigation = useNavigation();
-  const [countryCode, setCountryCode] = useState('ML'); // Mali par défaut
+  const [countryCode, setCountryCode] = useState('ML'); 
   const [callingCode, setCallingCode] = useState('223');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [loading, setLoading] = useState(false);
+  const router = useRouter()
 
   const handleAuth = async () => {
     if (!phoneNumber || phoneNumber.length < 4) {
@@ -129,6 +131,12 @@ export default function LoginScreen() {
           <FontAwesome name="apple" size={20} color="black" />
           <Text style={styles.socialButtonText}>Continuer avec Apple</Text>
         </TouchableOpacity>
+        <TouchableOpacity 
+          style={styles.guestButton} 
+          onPress={() => router.replace('/(tabs)')}
+        >
+          <Text style={styles.guestButtonText}>Continuer sans compte</Text>
+        </TouchableOpacity>
 
       </View>
     </SafeAreaView>
@@ -198,7 +206,7 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     fontSize: 16,
-    color: 'black', // Changé COLORS.gray2 en black pour une meilleure lisibilité lors de la saisie
+    color: 'black', 
   },
   mainButton: {
     width: '100%',
@@ -246,5 +254,17 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600',
     color: COLORS.secondary,
+  },
+  guestButton: {
+    marginTop: 15,
+    paddingVertical: 10,
+    width: '100%',
+    alignItems: 'center',
+  },
+  guestButtonText: {
+    color: COLORS.gray1,
+    fontSize: 15,
+    fontWeight: '600',
+    textDecorationLine: 'underline', //lien cliquable
   },
 });

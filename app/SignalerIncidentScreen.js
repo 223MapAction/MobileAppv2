@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { envoyerIncident } from "../api/incidents";
 import { COLORS } from '../Composants/themeConfig';
-
+import { getAuthUser } from '../storage/authStorage';
 const { width } = Dimensions.get('window');
 
 export default function SignalerIncidentScreen() {
@@ -23,13 +23,20 @@ export default function SignalerIncidentScreen() {
   const [location, setLocation] = useState(null);
   const [loadingLocation, setLoadingLocation] = useState(true);
   const [sending, setSending] = useState(false);
+  const [user, setUser] = useState(null);
 
   const [photoUri, setPhotoUri] = useState(initialPhoto);
   const [videoUri, setVideoUri] = useState(null);
   const [audioUri, setAudioUri] = useState(null);
   const [recording, setRecording] = useState(null);
 
-
+  useEffect(() => {
+    const loadUser = async () => {
+      const userData = await getAuthUser();
+      setUser(userData);
+    };
+    loadUser();
+  }, []);
   useEffect(() => {
     (async () => {
       let { status } = await Location.requestForegroundPermissionsAsync();
@@ -99,40 +106,42 @@ export default function SignalerIncidentScreen() {
 
 
   const handleSendIncident = async () => {
-    if (!location) {
-      Alert.alert("Attente", "Localisation en cours...");
-      return;
-    }
+  if (!location) {
+    Alert.alert("Attente", "Localisation en cours...");
+    return;
+  }
 
-    setSending(true);
+  setSending(true);
 
-    const incidentData = {
-      title: "Incident MapAction",
-      description: description || "",
-      lattitude: location.coords.latitude.toString(),
-      longitude: location.coords.longitude.toString(),
-      zone: location.address?.city || "Bamako",
-      photo: photoUri || "", 
-      audio: audioUri || "", 
-      video: videoUri || "", 
-      etat: "declared",
-    };
-
-    try {
-      const result = await envoyerIncident(incidentData);
-      if (result.ok) {
-        Alert.alert("Succès", "Incident envoyé avec succès !", [
-          { text: "OK", onPress: () => navigation.navigate('index') }
-        ]);
-      } else {
-        Alert.alert("Erreur", "Le serveur n'a pas pu traiter le signalement.");
-      }
-    } catch (error) {
-      Alert.alert("Erreur", "Une erreur critique est survenue.");
-    } finally {
-      setSending(false);
-    }
+  // Utilise l'optional chaining (?.) pour ne pas planter si user est null
+  const incidentData = {
+    user_id: user?.id || null, 
+    title: "Incident MapAction",
+    description: description || "",
+    lattitude: location.coords.latitude.toString(),
+    longitude: location.coords.longitude.toString(),
+    zone: location.address?.city || "Bamako",
+    photo: photoUri || "", 
+    audio: audioUri || "", 
+    video: videoUri || "", 
+    etat: "declared",
   };
+
+  try {
+    const result = await envoyerIncident(incidentData);
+    if (result.ok) {
+      Alert.alert("Succès", "Incident envoyé avec succès !", [
+        { text: "OK", onPress: () => navigation.navigate('index') }
+      ]);
+    } else {
+      Alert.alert("Erreur", "Le serveur n'a pas pu traiter le signalement.");
+    }
+  } catch (error) {
+    Alert.alert("Erreur", "Une erreur critique est survenue.");
+  } finally {
+    setSending(false);
+  }
+};
 
   return (
     <View style={styles.container}>
