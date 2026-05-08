@@ -116,7 +116,7 @@ export default function SignalerIncidentScreen() {
   // Utilise l'optional chaining (?.) pour ne pas planter si user est null
   const incidentData = {
     user_id: user?.id || null, 
-    title: "Incident MapAction",
+    title: "MapAction Incident",
     description: description || "",
     lattitude: location.coords.latitude.toString(),
     longitude: location.coords.longitude.toString(),
@@ -126,6 +126,7 @@ export default function SignalerIncidentScreen() {
     video: videoUri || "", 
     etat: "declared",
   };
+
 
   try {
     const result = await envoyerIncident(incidentData);
