@@ -39,7 +39,7 @@ export const envoyerIncident = async (payload) => {
        });
     }
 
-    // Traitement de la Vidéo
+    // Traitement de la Vidéo8
     if (video) {
        let vParts = video.split("/");
        let vExtension = vParts[vParts.length - 1].split(".").pop();
@@ -75,6 +75,32 @@ export const envoyerIncident = async (payload) => {
     }
   } catch (error) {
     // console.error("Erreur lors de l'envoi de l'incident:", error);
+    return { ok: false, error };
+  }
+};
+
+// Ajoute ceci à ton fichier api/incidents.js
+
+export const getMesIncidents = async (userId, token) => {
+  try {
+    const response = await fetch(`${apiEndPoint}/my-incidents/?user_id=${userId}`, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        // AJOUT DU TOKEN ICI
+        'Authorization': `Bearer ${token}`, // Ou `Token ${token}` selon ta config Django
+      },
+    });
+
+    const data = await response.json();
+
+    if (response.ok) {
+      return { ok: true, data };
+    } else {
+      return { ok: false, error: data };
+    }
+  } catch (error) {
     return { ok: false, error };
   }
 };

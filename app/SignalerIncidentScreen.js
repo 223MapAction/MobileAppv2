@@ -1,4 +1,5 @@
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
+import NetInfo from '@react-native-community/netinfo';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Audio } from 'expo-av';
 import * as ImagePicker from 'expo-image-picker';
@@ -9,6 +10,7 @@ import {
   StyleSheet, Text, TextInput, TouchableOpacity, View
 } from 'react-native';
 import { envoyerIncident } from "../api/incidents";
+import { OfflineManager } from '../api/offlineManager';
 import { COLORS } from '../Composants/themeConfig';
 import { getAuthUser } from '../storage/authStorage';
 const { width } = Dimensions.get('window');
@@ -111,12 +113,13 @@ export default function SignalerIncidentScreen() {
     return;
   }
 
+  const network = await NetInfo.fetch(); // Vérifie l'état réel du réseau
   setSending(true);
 
   // Utilise l'optional chaining (?.) pour ne pas planter si user est null
   const incidentData = {
     user_id: user?.id || null, 
-    title: "Incident MapAction",
+    title: "MapAction Incident",
     description: description || "",
     lattitude: location.coords.latitude.toString(),
     longitude: location.coords.longitude.toString(),
@@ -128,16 +131,28 @@ export default function SignalerIncidentScreen() {
   };
 
   try {
-    const result = await envoyerIncident(incidentData);
-    if (result.ok) {
-      Alert.alert("Succès", "Incident envoyé avec succès !", [
-        { text: "OK", onPress: () => navigation.navigate('index') }
-      ]);
+    if (network.isConnected) {
+      // --- MODE ONLINE ---
+      const result = await envoyerIncident(incidentData);
+      if (result.ok) {
+        Alert.alert("Succès", "Incident envoyé avec succès !");
+        navigation.navigate('index');
+      } else {
+        throw new Error("Erreur serveur");
+      }
     } else {
-      Alert.alert("Erreur", "Le serveur n'a pas pu traiter le signalement.");
+      // --- MODE OFFLINE ---
+      const saved = await OfflineManager.saveForLater(incidentData);
+      if (saved) {
+        Alert.alert(
+          "Mode Hors-ligne", 
+          "Pas de connexion. L'incident a été enregistré et sera envoyé automatiquement dès que vous aurez internet.",
+          [{ text: "OK", onPress: () => navigation.navigate('index') }]
+        );
+      }
     }
   } catch (error) {
-    Alert.alert("Erreur", "Une erreur critique est survenue.");
+    Alert.alert("Erreur", "Impossible d'envoyer l'incident pour le moment.");
   } finally {
     setSending(false);
   }
