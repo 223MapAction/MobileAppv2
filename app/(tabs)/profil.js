@@ -1,9 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Dimensions, Image, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Dimensions, Image, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { read_user, update_user } from '../../api/user';
 import { COLORS } from '../../Composants/themeConfig';
-import { clearAuthToken, clearAuthUser, getAuthUser } from '../../storage/authStorage';
+import { clearAuthToken, clearAuthUser, getAuthToken, getAuthUser, setAuthUser } from '../../storage/authStorage';
 
 const { width, height } = Dimensions.get('window');
 
@@ -11,39 +13,145 @@ export default function ProfilScreen() {
   const [user, setUser] = useState(null);
   const [isLoadingUser, setIsLoadingUser] = useState(true);
   const [isPersonalInfoOpen, setIsPersonalInfoOpen] = useState(false);
+  
+  // --- ÉTATS POUR L'ÉDITION ---
+  const [isEditing, setIsEditing] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [editForm, setEditForm] = useState({ first_name: '', last_name: '', phone: '', email: '' });
+
   const router = useRouter();
+
+  // Déclaration de la fonction de chargement/rafraîchissement utilisable partout
+  const rafraichirProfilUtilisateur = async () => {
+    try {
+      const localUser = await getAuthUser();
+      
+      if (localUser) {
+        const tokenData = await getAuthToken();
+        const token = tokenData?.access || tokenData;
+        
+        const freshUserData = await read_user(localUser.id, token); 
+        
+        if (freshUserData) {
+          await setAuthUser(freshUserData); 
+          setUser(freshUserData);
+          setEditForm({
+            first_name: freshUserData.first_name || '',
+            last_name: freshUserData.last_name || '',
+            phone: freshUserData.phone || '',
+            email: freshUserData.email || '',
+          });
+          return;
+        }
+      }
+      
+      if (localUser) {
+        setUser(localUser);
+        setEditForm({
+          first_name: localUser.first_name || '',
+          last_name: localUser.last_name || '',
+          phone: localUser.phone || '',
+          email: localUser.email || '',
+        });
+      }
+    } catch (error) {
+      console.error("Erreur rafraîchissement profil:", error);
+    }
+  };
 
   useEffect(() => {
     let isMounted = true;
-    const loadUser = async () => {
-      try {
-        const parsed = await getAuthUser();
-        if (isMounted) setUser(parsed);
-      } catch (error) {
-        console.error("Erreur chargement user:", error);
-      } finally {
-        if (isMounted) setIsLoadingUser(false);
-      }
+    const initLoad = async () => {
+      await rafraichirProfilUtilisateur();
+      if (isMounted) setIsLoadingUser(false);
     };
-    loadUser();
+    initLoad();
     return () => { isMounted = false; };
   }, []);
+
+  // --- FONCTION POUR SELECTIONNER UNE NOUVELLE IMAGE (CORRIGÉE POUR EXPO) ---
+  const pickImage = async () => {
+    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    
+    if (permissionResult.granted === false) {
+      Alert.alert("Permission requise", "Vous devez autoriser l'accès à vos photos pour modifier votre avatar.");
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: 'images', // Correction ici : 'images' remplace MediaTypeOptions.Images pour éviter le warning
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.7,
+    });
+
+    if (!result.canceled && result.assets[0].uri) {
+      handleSaveAvatar(result.assets[0].uri);
+    }
+  };
+
+  // --- SAUVEGARDE DE L'AVATAR CORRIGÉE ---
+  const handleSaveAvatar = async (imageUri) => {
+    setIsUpdating(true);
+    try {
+      const tokenData = await getAuthToken();
+      const token = tokenData?.access || tokenData;
+      
+      // On envoie l'objet simple, update_user va l'intercepter et créer le FormData autonome
+      await update_user(user.id, { avatar: imageUri }, token);
+      
+      // Rafraîchissement des données de l'utilisateur
+      await rafraichirProfilUtilisateur();
+      
+      Alert.alert("Succès", "Votre photo de profil a été mise à jour !");
+    } catch (error) {
+      console.error("Erreur technique handleSaveAvatar:", error);
+      Alert.alert("Erreur", "Impossible de mettre à jour la photo.");
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  // --- SAUVEGARDE DES INFORMATIONS TEXTUELLES + REFRESH ---
+  const handleSaveProfileInfo = async () => {
+    if (!editForm.first_name.trim()) {
+      Alert.alert("Champ obligatoire", "Le prénom ne peut pas être vide.");
+      return;
+    }
+    if (!editForm.last_name.trim()) {
+      Alert.alert("Champ obligatoire", "Le nom ne peut pas être vide.");
+      return;
+    }
+
+    setIsUpdating(true);
+    try {
+      const tokenData = await getAuthToken();
+      const token = tokenData?.access || tokenData;
+      
+      await update_user(user.id, editForm, token);
+      await rafraichirProfilUtilisateur();
+      
+      setIsEditing(false);
+      setIsPersonalInfoOpen(false); 
+      Alert.alert("Succès", "Vos informations ont été modifiées avec succès !");
+    } catch (error) {
+      Alert.alert("Erreur", "Une erreur est survenue lors de la modification.");
+    } finally {
+      setIsUpdating(false);
+    }
+  };
 
   const handleLogout = async () => {
     try {
       await clearAuthUser();
       await clearAuthToken();
       setUser(null);
-      
-      // Redirection vers la racine de l'auth pour sortir du layout (tabs)
       router.replace('/Authentification'); 
-      console.log("Déconnexion réussie");
     } catch (error) {
       console.error("Erreur logout:", error);
     }
   };
 
-  // Gestion des données utilisateur
   const firstName = (user?.first_name || '').trim();
   const lastName = (user?.last_name || '').trim();
   const fullName = `${firstName} ${lastName}`.trim() || user?.email || 'Utilisateur';
@@ -70,7 +178,6 @@ export default function ProfilScreen() {
     );
   }
 
-  // Écran affiché si l'utilisateur n'est pas connecté
   if (!user) {
     return (
       <View style={styles.emptyContainer}>
@@ -99,18 +206,41 @@ export default function ProfilScreen() {
               <Text style={styles.profileImageFallbackText}>{initials}</Text>
             </View>
           )}
-          <TouchableOpacity style={styles.editBadge}>
-            <Ionicons name="camera" size={16} color={COLORS.white} />
+          <TouchableOpacity style={styles.editBadge} onPress={pickImage} disabled={isUpdating}>
+            {isUpdating ? (
+              <ActivityIndicator size="small" color="white" />
+            ) : (
+              <Ionicons name="camera" size={16} color={COLORS.white} />
+            )}
           </TouchableOpacity>
         </View>
         <Text style={styles.userName}>{fullName}</Text>
+        
+        <TouchableOpacity 
+          style={styles.editProfileInlineBtn} 
+          onPress={() => {
+            setEditForm({
+              first_name: user?.first_name || '',
+              last_name: user?.last_name || '',
+              phone: user?.phone || '',
+              email: user?.email || '',
+            });
+            setIsEditing(true);
+            setIsPersonalInfoOpen(true); 
+          }}
+        >
+          <Text style={styles.editProfileInlineText}>Modifier le profil</Text>
+        </TouchableOpacity>
       </View>
 
       {/* Menu Options */}
       <View style={styles.menuContainer}>
         <Text style={styles.sectionTitle}>Compte</Text>
         <View style={styles.sectionCard}>
-          <MenuItem icon="person-outline" title="Information personnelle" onPress={() => setIsPersonalInfoOpen(true)} />
+          <MenuItem icon="person-outline" title="Information personnelle" onPress={() => {
+            setIsEditing(false);
+            setIsPersonalInfoOpen(true);
+          }} />
           <MenuItem icon="information-circle-outline" title="À propos de nous" />
         </View>
 
@@ -123,39 +253,112 @@ export default function ProfilScreen() {
 
         <Text style={styles.sectionTitle}>Connexion</Text>
         <View style={styles.sectionCard}>
-          <MenuItem icon="trash-outline" title="Supprimer mon compte"  onPress={handleLogout} />
+          <MenuItem icon="trash-outline" title="Supprimer mon compte" onPress={handleLogout} />
           <MenuItem icon="log-out-outline" title="Déconnexion" color="#FF4444" onPress={handleLogout} />
         </View>
       </View>
 
       <View style={{ height: 40 }} />
 
-      {/* Modal Informations */}
+      {/* Modal Informations Personnelles */}
       <Modal visible={isPersonalInfoOpen} transparent animationType="slide">
         <View style={styles.modalBackdrop}>
           <View style={styles.modalCard}>
             <View style={styles.modalHeaderRow}>
-              <Text style={styles.modalTitle}>Détails du compte</Text>
-              <TouchableOpacity onPress={() => setIsPersonalInfoOpen(false)}>
+              <Text style={styles.modalTitle}>
+                {isEditing ? "Modifier mon profil" : "Détails du compte"}
+              </Text>
+              <TouchableOpacity onPress={() => {
+                setIsPersonalInfoOpen(false);
+                setIsEditing(false);
+              }}>
                 <Ionicons name="close" size={24} color={COLORS.secondary} />
               </TouchableOpacity>
             </View>
 
-            {[
-              { label: 'Nom complet', value: fullName },
-              { label: 'Email', value: user?.email },
-              { label: 'Téléphone', value: user?.phone },
-              { label: 'Type de compte', value: user?.user_type }
-            ].map((info, index) => (
-              <View key={index} style={styles.modalRow}>
-                <Text style={styles.modalLabel}>{info.label}</Text>
-                <Text style={styles.modalValue}>{info.value || '-'}</Text>
-              </View>
-            ))}
+            {isEditing ? (
+              <View>
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>Prénom <Text style={styles.requiredAsterisk}>*</Text></Text>
+                  <TextInput 
+                    style={styles.textInput}
+                    value={editForm.first_name}
+                    onChangeText={(text) => setEditForm({...editForm, first_name: text})}
+                  />
+                </View>
 
-            <TouchableOpacity style={styles.modalCloseBtn} onPress={() => setIsPersonalInfoOpen(false)}>
-              <Text style={styles.modalCloseBtnText}>Fermer</Text>
-            </TouchableOpacity>
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>Nom <Text style={styles.requiredAsterisk}>*</Text></Text>
+                  <TextInput 
+                    style={styles.textInput}
+                    value={editForm.last_name}
+                    onChangeText={(text) => setEditForm({...editForm, last_name: text})}
+                  />
+                </View>
+
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>Téléphone (Non modifiable)</Text>
+                  <TextInput 
+                    style={[styles.textInput, styles.textInputDisabled]}
+                    value={editForm.phone}
+                    editable={false} 
+                    selectTextOnFocus={false}
+                  />
+                </View>
+
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>Email (Optionnel)</Text>
+                  <TextInput 
+                    style={styles.textInput}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    value={editForm.email}
+                    onChangeText={(text) => setEditForm({...editForm, email: text})}
+                  />
+                </View>
+
+                <TouchableOpacity 
+                  style={[styles.modalCloseBtn, { backgroundColor: COLORS.primary }]} 
+                  onPress={handleSaveProfileInfo}
+                  disabled={isUpdating}
+                >
+                  {isUpdating ? (
+                    <ActivityIndicator color="white" />
+                  ) : (
+                    <Text style={styles.modalCloseBtnText}>Enregistrer les modifications</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <View>
+                {[
+                  { label: 'Nom complet', value: fullName },
+                  { label: 'Email', value: user?.email },
+                  { label: 'Téléphone', value: user?.phone },
+                  { label: 'Type de compte', value: user?.user_type }
+                ].map((info, index) => (
+                  <View key={index} style={styles.modalRow}>
+                    <Text style={styles.modalLabel}>{info.label}</Text>
+                    <Text style={styles.modalValue}>{info.value || '-'}</Text>
+                  </View>
+                ))}
+
+                <View style={{ flexDirection: 'row', gap: 10, marginTop: 20 }}>
+                  <TouchableOpacity 
+                    style={[styles.modalCloseBtn, { flex: 1, backgroundColor: COLORS.secondary }]} 
+                    onPress={() => setIsEditing(true)}
+                  >
+                    <Text style={styles.modalCloseBtnText}>Modifier</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    style={[styles.modalCloseBtn, { flex: 1 }]} 
+                    onPress={() => setIsPersonalInfoOpen(false)}
+                  >
+                    <Text style={styles.modalCloseBtnText}>Fermer</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
           </View>
         </View>
       </Modal>
@@ -165,28 +368,26 @@ export default function ProfilScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#FDFDFD' },
-  header: { alignItems: 'center', paddingVertical: height * 0.04 },
+  header: { alignItems: 'center', paddingTop: height * 0.04, paddingBottom: 10 },
   imageContainer: { position: 'relative', marginBottom: 15 },
   profileImage: { width: 100, height: 100, borderRadius: 50, borderWidth: 3, borderColor: COLORS.primary },
   profileImageFallback: { width: 100, height: 100, borderRadius: 50, backgroundColor: '#EEE', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#DDD' },
   profileImageFallbackText: { fontSize: 32, fontWeight: 'bold', color: COLORS.secondary },
   editBadge: { position: 'absolute', bottom: 0, right: 0, backgroundColor: COLORS.primary, width: 32, height: 32, borderRadius: 16, justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: 'white' },
-  userName: { fontSize: 20, fontWeight: 'bold', color: COLORS.secondary },
-  
+  userName: { fontSize: 20, fontWeight: 'bold', color: COLORS.secondary, marginBottom: 4 },
+  editProfileInlineBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.primary + '12', paddingVertical: 5, paddingHorizontal: 12, borderRadius: 20, marginTop: 4 },
+  editProfileInlineText: { fontSize: 13, color: COLORS.primary, fontWeight: '600' },
   menuContainer: { paddingHorizontal: 20 },
   sectionTitle: { fontSize: 12, fontWeight: '700', color: COLORS.gray1, marginBottom: 8, marginLeft: 5, textTransform: 'uppercase' },
   sectionCard: { backgroundColor: 'white', borderRadius: 16, marginBottom: 20, elevation: 2, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 10 },
   menuItem: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16 },
   menuLeft: { flexDirection: 'row', alignItems: 'center' },
   menuText: { fontSize: 16, marginLeft: 12, fontWeight: '500' },
-
-  // Styles pour l'état non-connecté
   emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 30 },
   emptyTitle: { fontSize: 22, fontWeight: 'bold', color: COLORS.secondary, marginTop: 20 },
   emptySubtitle: { fontSize: 14, color: COLORS.gray1, textAlign: 'center', marginTop: 10, marginBottom: 30 },
   loginButton: { backgroundColor: COLORS.primary, paddingHorizontal: 40, paddingVertical: 15, borderRadius: 30 },
   loginButtonText: { color: 'white', fontWeight: 'bold', fontSize: 16 },
-
   modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
   modalCard: { backgroundColor: 'white', padding: 25, borderTopLeftRadius: 25, borderTopRightRadius: 25 },
   modalHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20 },
@@ -194,6 +395,11 @@ const styles = StyleSheet.create({
   modalRow: { paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#F0F0F0' },
   modalLabel: { fontSize: 11, color: COLORS.gray1, textTransform: 'uppercase', marginBottom: 4 },
   modalValue: { fontSize: 15, color: COLORS.secondary, fontWeight: '600' },
-  modalCloseBtn: { marginTop: 20, backgroundColor: COLORS.primary, padding: 15, borderRadius: 12, alignItems: 'center' },
-  modalCloseBtnText: { color: 'white', fontWeight: 'bold' }
+  modalCloseBtn: { marginTop: 10, backgroundColor: COLORS.primary, padding: 15, borderRadius: 12, alignItems: 'center' },
+  modalCloseBtnText: { color: 'white', fontWeight: 'bold' },
+  inputGroup: { marginBottom: 15 },
+  inputLabel: { fontSize: 12, fontWeight: '600', color: COLORS.gray1, marginBottom: 6 },
+  requiredAsterisk: { color: '#FF4444', fontWeight: 'bold' },
+  textInput: { borderWidth: 1, borderColor: '#E0E0E0', borderRadius: 10, padding: 12, fontSize: 15, color: COLORS.secondary, backgroundColor: '#FAFAFA' },
+  textInputDisabled: { backgroundColor: '#ECECEC', borderColor: '#DCDCDC', color: '#888888', opacity: 0.7 }
 });
