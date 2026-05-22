@@ -1,4 +1,4 @@
-import http, { makeid } from "./apiUrl";
+import http, { apiEndPoint } from "./apiUrl";
 
 /**
  * Récupère la liste de tous les utilisateurs (avec gestion de la pagination)
@@ -18,8 +18,30 @@ export async function list_user() {
 /**
  * Récupère les détails d'un utilisateur spécifique
  */
-export async function read_user(id) {
-  return await http.get(`/user/${id}/`);
+export async function read_user(id, token = null) {
+  const headers = {};
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+
+  try {
+    const response = await fetch(`${apiEndPoint}/user/${id}/`, {
+      method: 'GET',
+      headers: headers,
+    });
+
+    const resultData = await response.json();
+
+    if (response.ok) {
+      return resultData;
+    } else {
+      console.error("Erreur serveur read_user :", resultData);
+      throw resultData;
+    }
+  } catch (error) {
+    console.error("Erreur réseau / API read_user :", error);
+    throw error;
+  }
 }
 
 /**
@@ -28,45 +50,50 @@ export async function read_user(id) {
 export async function update_user(id, { avatar, ...data }, token = null) {
   let formdata = new FormData();
 
-  // 1. Gestion de l'Avatar (si c'est un nouveau fichier local)
-  if (avatar && avatar.startsWith("file://")) {
-    const parts = avatar.split(".");
-    const extension = parts[parts.length - 1].toLowerCase();
+  // 1. Gestion de l'Avatar
+  if (avatar && (avatar.startsWith("file://") || avatar.startsWith("content://"))) {
+    const filename = avatar.split('/').pop();
+    const parts = filename.split(".");
+    const extension = parts.length > 1 ? parts[parts.length - 1].toLowerCase() : 'jpg';
+    
+    // ICI : Remplacement définitif de generateMakeId par un ID unique basé sur le temps
+    const uniqueId = Date.now() + Math.random().toString(36).substring(2, 11);
     
     formdata.append("avatar", {
       uri: avatar,
-      name: `${makeid(20)}.${extension}`,
-      // Correction dynamique du type MIME
+      name: `${uniqueId}.${extension}`,
       type: extension === 'jpg' || extension === 'jpeg' ? 'image/jpeg' : `image/${extension}`,
     });
+  } else if (avatar) {
+    formdata.append("avatar", avatar);
   }
 
-  // 2. Ajout des autres champs (Nom, Prénom, Email, etc.)
-  // On filtre les valeurs nulles ou indéfinies
+  // 2. Ajout des autres champs
   Object.keys(data).forEach((key) => {
     if (data[key] !== null && data[key] !== undefined) {
       formdata.append(key, data[key]);
     }
   });
 
-  // 3. Configuration des Headers
-  const options = {
-    headers: {
-      "Content-Type": "multipart/form-data",
-    },
-  };
-
-  if (token) {
-    options.headers["Authorization"] = `Bearer ${token}`;
-  }
-
-  // 4. Envoi de la requête
+  // 3. Envoi de la requête
   try {
-    const response = await http.put(`/user/${id}/`, formdata, options);
-    console.log("Mise à jour réussie :", response);
-    return response; 
+    const response = await fetch(`${apiEndPoint}/user/${id}/`, {
+      method: 'PUT',
+      headers: token ? { "Authorization": `Bearer ${token}` } : {},
+      body: formdata,
+    });
+
+    const resultData = await response.json();
+
+    if (response.ok) {
+      console.log("Mise à jour réussie :", resultData);
+      return resultData;
+    } else {
+      console.error("Erreur retournée par le serveur :", resultData);
+      throw resultData;
+    }
   } catch (error) {
-    console.error("Erreur API update_user :", error);
+    console.error("Erreur réseau / API update_user :", error);
     throw error;
   }
 }

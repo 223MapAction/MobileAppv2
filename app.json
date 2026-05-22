@@ -13,6 +13,7 @@
       "bundleIdentifier": "com.uwaish.mapactionapp"
     },
     "android": {
+      "package": "com.uwaish.mapactionapp",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -37,6 +38,16 @@
           "backgroundColor": "#ffffff",
           "dark": {
             "backgroundColor": "#000000"
+          }
+        }
+      ],
+      [
+        "react-native-app-auth",
+        {
+          "android": {
+            "manifestPlaceholders": {
+              "appAuthRedirectScheme": "mapactionapp"
+            }
           }
         }
       ]

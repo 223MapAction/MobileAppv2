@@ -104,3 +104,29 @@ export const getMesIncidents = async (userId, token) => {
     return { ok: false, error };
   }
 };
+
+// Ajoute cette fonction dans api/incidents.js
+export const getIncidentByIdOnline = async (incidentId, token) => {
+  try {
+    const response = await fetch(`${apiEndPoint}/my-incidents/`, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+
+    const data = await response.json();
+
+    if (response.ok) {
+      // On cherche l'incident spécifique dans le tableau renvoyé par le serveur
+      const incident = data.find(item => item.id?.toString() === incidentId?.toString());
+      return { ok: true, data: incident };
+    } else {
+      return { ok: false, error: data };
+    }
+  } catch (error) {
+    return { ok: false, error };
+  }
+};
