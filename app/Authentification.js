@@ -46,6 +46,7 @@ export default function LoginScreen() {
     console.log("Plateforme détectée :", Platform.OS);
     console.log("Clé Android (.env) :", process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID_ANDROID);
     console.log("Clé iOS (.env) :", process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID_IOS);
+    console.log("mapbox :", process.env.mapboxToken);
     console.log("Clé finale injectée dans googleConfig :", googleConfig.clientId);
     console.log("Redirect URL configuré :", googleConfig.redirectUrl);
     console.log("=======================================");

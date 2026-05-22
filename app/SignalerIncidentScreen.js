@@ -1,6 +1,8 @@
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import NetInfo from '@react-native-community/netinfo';
 import { useRoute } from '@react-navigation/native';
+import { getZoneFromCoordinates } from '../services/general';
+
 import { Audio } from 'expo-av';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
@@ -27,6 +29,7 @@ export default function SignalerIncidentScreen() {
   const [description, setDescription] = useState('');
   const [location, setLocation] = useState(null);
   const [loadingLocation, setLoadingLocation] = useState(true);
+  const [zoneName, setZoneName] = useState('Bamako');
   const [locationError, setLocationError] = useState(false);
   const [sending, setSending] = useState(false);
   const [user, setUser] = useState(null);
@@ -84,8 +87,18 @@ export default function SignalerIncidentScreen() {
       });
       
       setLocation({ coords: currentLocation.coords, address: address[0] });
+   // ---- APPEL DYNAMIQUE MAPBOX ----
+      console.log("-> Début de la récupération de la zone via Mapbox API...");
+      const zoneRecuperee = await getZoneFromCoordinates(
+        currentLocation.coords.latitude,
+        currentLocation.coords.longitude
+      );
+      
+      console.log("-> Zone déterminée par Mapbox :", zoneRecuperee);
+      setZoneName(zoneRecuperee); // Mise à jour de l'état avec la valeur Mapbox
+
     } catch (error) {
-      console.error("Erreur localisation:", error);
+      console.error("Erreur localisation ou Mapbox :", error);
       setLocationError(true);
     } finally {
       setLoadingLocation(false);
@@ -197,7 +210,7 @@ export default function SignalerIncidentScreen() {
     description: description || "",
     lattitude: location.coords.latitude.toString(),
     longitude: location.coords.longitude.toString(),
-    zone: location.address?.city || "Bamako",
+    zone: zoneName,
     photo: photoUri || "", 
     audio: audioUri || "", 
     video: videoUri || "", 
@@ -369,7 +382,7 @@ export default function SignalerIncidentScreen() {
                 <ActivityIndicator size="small" color={COLORS.primary} />
               ) : (
                 <>
-                  <Text style={styles.addressText}>{location?.address?.city || 'Bamako'}, {location?.address?.street || 'Position actuelle'}</Text>
+                  <Text style={styles.addressText}>{zoneName}, {location?.address?.street || 'Position actuelle'}</Text>
                   <Text style={styles.coordsText}>{location?.coords.latitude.toFixed(5)}, {location?.coords.longitude.toFixed(5)}</Text>
                 </>
               )}
