@@ -21,7 +21,7 @@ export default function TermsAndConditionsScreen() {
 
   const handleAccept = async () => {
     await setTermsAccepted(true);
-    router.replace('/(tabs)');
+    router.replace('/Authentification');
   };
 
   const handleDecline = () => {
