@@ -1,15 +1,13 @@
 import { apiEndPoint } from "./apiUrl";
+//  Importation des fonctions de stockage créées à l'étape 1
+import { saveAuthUser } from "../storage/authStorageAgent";
 
 /**
  * Connexion d'un agent de terrain via téléphone + PIN 4 chiffres
- * @param {string} phone - Numéro au format international (ex: +22375323212)
- * @param {string} pin - Code PIN à 4 chiffres
- * @returns {Promise<Object>} Résultat avec statut {ok: true, data} ou {ok: false, error}
  */
 export async function loginAgent(phone, pin) {
   console.log("=== API CALL: loginAgent ===");
   console.log("-> URL cible :", `${apiEndPoint}/agent-pin-login/`);
-  console.log("-> Payload envoyé :", { phone, pin: "****" });
 
   try {
     const response = await fetch(`${apiEndPoint}/agent-pin-login/`, {
@@ -25,6 +23,17 @@ export async function loginAgent(phone, pin) {
 
     if (response.ok) {
       console.log("-> [API SUCCESS] Connexion réussie pour l'agent :", resultData.user?.first_name);
+
+      // 🔑 CRUCIAL : On prépare l'objet session avec le token et les infos de l'utilisateur
+      const sessionData = {
+        token: resultData.access,       // Ton access_token Bearer
+        refresh: resultData.refresh,   // Ton refresh token si présent
+        user: resultData.user          // Profil de l'agent (id, name, must_change_pin...)
+      };
+
+      // 💾 Sauvegarde physique immédiate sur le téléphone
+      await saveAuthUser(sessionData);
+
       return { ok: true, data: resultData };
     } else {
       console.error("-> [API SERVER ERROR] Le serveur a rejeté la connexion :", resultData);
@@ -38,10 +47,6 @@ export async function loginAgent(phone, pin) {
 
 /**
  * Change le code PIN de l'agent connecté
- * @param {string} oldPin - PIN actuel (4 chiffres)
- * @param {string} newPin - Nouveau PIN (4 chiffres)
- * @param {string} token - Le token d'authentification (JWT) de l'agent connecté
- * @returns {Promise<Object>} Résultat avec statut {ok: true, data} ou {ok: false, error}
  */
 export async function changeAgentPin(oldPin, newPin, token) {
   console.log("=== API CALL: changeAgentPin ===");
@@ -58,7 +63,7 @@ export async function changeAgentPin(oldPin, newPin, token) {
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
-        'Authorization': `Bearer ${token}`, // Header crucial pour l'authentification Django/Express
+        'Authorization': `Bearer ${token}`,
       },
       body: JSON.stringify({
         old_pin: oldPin,
@@ -70,6 +75,10 @@ export async function changeAgentPin(oldPin, newPin, token) {
 
     if (response.ok) {
       console.log("-> [API SUCCESS] PIN changé avec succès");
+      
+      // 💡 Optionnel mais recommandé : Si ton API renvoie un nouvel utilisateur 
+      // ou met à jour `must_change_pin: false`, tu pourras mettre à jour le storage ici.
+      
       return { ok: true, data: resultData };
     } else {
       console.error("-> [API SERVER ERROR] Échec du changement de PIN :", resultData);

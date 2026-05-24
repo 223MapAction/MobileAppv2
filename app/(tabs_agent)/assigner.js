@@ -1,267 +1,153 @@
-import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useState } from 'react';
-import { FlatList, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { FontAwesome, MaterialCommunityIcons } from '@expo/vector-icons';
+import { useEffect, useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  RefreshControl,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
+} from 'react-native';
+import { COLORS } from '../../Composants/themeConfig';
+
+// IMPORTATION DE TES SERVICES ET DE TON STORAGE
+import { getAssignedIncidents } from '../../api/AgentIncidents';
+import { getAuthUser } from '../../storage/authStorageAgent';
 
 export default function AssignerScreen() {
-  // 1. Simulation des données calquées exactement sur ta nouvelle maquette
-  const mockMissions = [
-    {
-      id: '1',
-      titre: 'Route ravagée',
-      zone: 'Faladiè',
-      urgence: 'Urgent',
-      dateDebut: '01 juin 26',
-      restant: '-2 jours',
-      dateFin: '02 juin 26',
-      image: 'https://images.unsplash.com/photo-1515162305285-0293e4767cc2?w=150',
-      badgeBg: '#FEE2E2',
-      badgeText: '#EF4444',
-    },
-    {
-      id: '2',
-      titre: 'Route ravagée',
-      zone: 'Faladiè',
-      urgence: 'Moyen',
-      dateDebut: '01 juin 26',
-      restant: '-5 jours',
-      dateFin: '06 juin 26',
-      image: 'https://images.unsplash.com/photo-1515162305285-0293e4767cc2?w=150',
-      badgeBg: '#FEF3C7',
-      badgeText: '#F59E0B',
-    },
-    {
-      id: '3',
-      titre: 'Route ravagée',
-      zone: 'Faladiè',
-      urgence: 'Faible',
-      dateDebut: '01 juin 26',
-      restant: '-15 jours',
-      dateFin: '20 juin 26',
-      image: 'https://images.unsplash.com/photo-1515162305285-0293e4767cc2?w=150',
-      badgeBg: '#D1FAE5',
-      badgeText: '#10B981',
-    },
-  ];
+  const [incidents, setIncidents] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
-  const [activeFilter, setActiveFilter] = useState('Tout');
+  // Fonction principale de chargement des données
+  const fetchMissions = async (showRefreshIndicator = false) => {
+    if (showRefreshIndicator) setRefreshing(true);
+    else setLoading(true);
 
-  // Filtrage dynamique
-  const filteredMissions = activeFilter === 'Tout'
-    ? mockMissions
-    : mockMissions.filter(item => item.urgence === activeFilter);
+    try {
+      // 1. On récupère la session de l'agent dans le stockage du téléphone
+      const session = await getAuthUser();
+      
+      if (session && session.token) {
+        // 2. On appelle l'API en lui fournissant le token récupéré
+        const result = await getAssignedIncidents(session.token);
+        
+        if (result.ok) {
+          setIncidents(result.data); // On met les incidents dans notre State pour l'affichage
+        } else {
+          Alert.alert("Erreur Serveur", result.error?.message || "Impossible de récupérer vos assignations.");
+        }
+      } else {
+        Alert.alert("Session introuvable", "Veuillez vous reconnecter pour accéder à vos tâches.");
+      }
+    } catch (err) {
+      console.error("Erreur lors du cycle fetchMissions :", err);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
 
-  const renderFilterButton = (label, count = null) => {
-    const isActive = activeFilter === label;
+  // Charger automatiquement les incidents dès l'affichage de la page
+  useEffect(() => {
+    fetchMissions();
+  }, []);
+
+  // Design d'une carte d'incident unique
+  const renderIncidentCard = ({ item }) => {
+    // Formatage propre de la date limite reçue (ex: "2026-06-01T17:00:00Z")
+    const expiration = new Date(item.deadline).toLocaleDateString('fr-FR', {
+      day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'
+    });
+
     return (
-      <TouchableOpacity
-        key={label}
-        style={[styles.filterButton, isActive && styles.activeFilterButton]}
-        onPress={() => setActiveFilter(label)}
-      >
-        <Text style={[styles.filterButtonText, isActive && styles.activeFilterButtonText]}>
-          {label}{count !== null ? `(${count})` : ''}
-        </Text>
-      </TouchableOpacity>
+      <View style={styles.card}>
+        <View style={styles.cardHeader}>
+          <Text style={styles.incidentTitle}>{item.incident_title}</Text>
+          <View style={[styles.statusBadge, { backgroundColor: item.status === 'pending' ? '#FEF3C7' : '#D1FAE5' }]}>
+            <Text style={[styles.statusText, { color: item.status === 'pending' ? '#D97706' : '#10B981' }]}>
+              {item.status === 'pending' ? 'En attente' : 'Rapporté'}
+            </Text>
+          </View>
+        </View>
+
+        <View style={styles.cardBody}>
+          <View style={styles.infoRow}>
+            <FontAwesome name="user" size={14} color={COLORS.gray1} style={styles.iconWidthFix} />
+            <Text style={styles.infoText}>Donneur d'ordre : {item.assigned_by_name}</Text>
+          </View>
+
+          <View style={styles.infoRow}>
+            <MaterialCommunityIcons name="clock-outline" size={14} color="#EF4444" style={styles.iconWidthFix} />
+            <Text style={[styles.infoText, { color: '#EF4444', fontWeight: '600' }]}>
+              Délai : {expiration}
+            </Text>
+          </View>
+        </View>
+
+        {/* Bouton pour déclencher l'intervention sur le terrain */}
+        <TouchableOpacity 
+          style={styles.actionButton}
+          onPress={() => Alert.alert("Intervention", `Préparation du rapport terrain pour l'incident #${item.incident}`)}
+        >
+          <Text style={styles.actionButtonText}>Intervenir sur le terrain</Text>
+          <MaterialCommunityIcons name="arrow-right" size={16} color="white" />
+        </TouchableOpacity>
+      </View>
     );
   };
 
+  // Écran d'attente pendant le chargement initial
+  if (loading) {
+    return (
+      <View style={styles.centerContainer}>
+        <ActivityIndicator size="large" color={COLORS.primary} />
+        <Text style={styles.loadingText}>Recherche de vos missions en cours...</Text>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
-      
-      {/* BARRE DE FILTRES HORIZONTALE DÉBLOQUÉE */}
-      <View style={styles.filterWrapper}>
-        <ScrollView 
-          horizontal 
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.filterScrollContainer}
-        >
-          {renderFilterButton('Tout', mockMissions.length)}
-          {renderFilterButton('Urgent')}
-          {renderFilterButton('Moyen')}
-          {renderFilterButton('Faible')}
-        </ScrollView>
-      </View>
-
-      {/* LISTE DES CARTES ASSIGNÉES */}
       <FlatList
-        data={filteredMissions}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.listContainer}
-        showsVerticalScrollIndicator={false}
-        renderItem={({ item }) => (
-          <View style={styles.card}>
-            
-            {/* SECTION HAUT DE LA CARTE */}
-            <View style={styles.cardTopSection}>
-              <Image source={{ uri: item.image }} style={styles.cardImage} />
-              
-              <View style={styles.cardHeaderContent}>
-                <View style={styles.titleRow}>
-                  <Text style={styles.cardTitle}>{item.titre}</Text>
-                  <View style={[styles.urgencyBadge, { backgroundColor: item.badgeBg }]}>
-                    <Text style={[styles.urgencyText, { color: item.badgeText }]}>
-                      {item.urgence.toUpperCase()}
-                    </Text>
-                  </View>
-                </View>
-                <Text style={styles.cardZone}>{item.zone}</Text>
-              </View>
-            </View>
-
-            {/* LIGNE POINTILLÉE DE SÉPARATION */}
-            <View style={styles.dottedDivider} />
-
-            {/* SECTION BAS DE LA CARTE (DATES & TIMER) */}
-            <View style={styles.cardBottomSection}>
-              
-              {/* Date Début */}
-              <View style={styles.metaItem}>
-                <MaterialCommunityIcons name="calendar-month-outline" size={18} color="#4B5563" />
-                <Text style={styles.metaText}>Du {item.dateDebut}</Text>
-              </View>
-
-              {/* Temps restant */}
-              <View style={styles.metaItem}>
-                <MaterialCommunityIcons name="clock-outline" size={18} color="#4B5563" />
-                <Text style={styles.metaText}>{item.restant}</Text>
-              </View>
-
-              {/* Date Fin */}
-              <View style={styles.metaItem}>
-                <MaterialCommunityIcons name="calendar-check-outline" size={18} color="#4B5563" />
-                <Text style={styles.metaText}>au {item.dateFin}</Text>
-              </View>
-
-            </View>
-
+        data={incidents}
+        keyExtractor={(item) => item.id.toString()}
+        renderItem={renderIncidentCard}
+        contentContainerStyle={styles.listPadding}
+        // Gère le geste "tirer pour rafraîchir" la liste
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={() => fetchMissions(true)} colors={[COLORS.primary]} />
+        }
+        // S'affiche si l'agent n'a aucun incident dans son tableau
+        ListEmptyComponent={
+          <View style={styles.emptyContainer}>
+            <MaterialCommunityIcons name="clipboard-check-outline" size={70} color={COLORS.gray1} />
+            <Text style={styles.emptyText}>Excellent ! Aucun incident ne vous est assigné pour le moment.</Text>
           </View>
-        )}
+        }
       />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F9FAFB',
-  },
-  
-  // BARRE DE FILTRES
-  filterWrapper: {
-    height: 70,
-    justifyContent: 'center',
-  },
-  filterScrollContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 15,
-    gap: 8,
-  },
-  filterButton: {
-    paddingHorizontal: 18,
-    paddingVertical: 8,
-    borderRadius: 12,
-    backgroundColor: 'white',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-  },
-  activeFilterButton: {
-    backgroundColor: '#3498db',
-    borderColor: '#3498db',
-  },
-  filterButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#1F2937',
-  },
-  activeFilterButtonText: {
-    color: 'white',
-  },
-
-  // LISTE ET CARTES
-  listContainer: {
-    paddingHorizontal: 15,
-    paddingBottom: 20,
-    gap: 14,
-  },
-  card: {
-    backgroundColor: 'white',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    elevation: 1,
-    shadowColor: '#000',
-    shadowOpacity: 0.02,
-    shadowRadius: 4,
-  },
-  cardTopSection: {
-    flexDirection: 'row',
-    padding: 12,
-  },
-  cardImage: {
-    width: 65,
-    height: 65,
-    borderRadius: 8,
-    backgroundColor: '#E5E7EB',
-  },
-  cardHeaderContent: {
-    flex: 1,
-    marginLeft: 12,
-    justifyContent: 'center',
-  },
-  titleRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  cardTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#111827',
-  },
-  urgencyBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-  },
-  urgencyText: {
-    fontSize: 10,
-    fontWeight: '700',
-    letterSpacing: 0.3,
-  },
-  cardZone: {
-    fontSize: 14,
-    color: '#9CA3AF',
-  },
-
-  // SÉPARATEUR POINTILLÉ SIMULÉ
-  dottedDivider: {
-    borderWidth: 0.5,
-    borderColor: '#E5E7EB',
-    borderStyle: 'dashed',
-    marginHorizontal: 12,
-  },
-
-  // SECTION BAS (DATES)
-  cardBottomSection: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 12,
-    paddingHorizontal: 12,
-    backgroundColor: '#FFFFFF',
-    borderBottomLeftRadius: 12,
-    borderBottomRightRadius: 12,
-  },
-  metaItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  metaText: {
-    fontSize: 13,
-    color: '#4B5563',
-    fontWeight: '500',
-  },
+  container: { flex: 1, backgroundColor: '#F9FAFB' },
+  listPadding: { padding: 15, paddingBottom: 30 },
+  centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  loadingText: { marginTop: 12, color: COLORS.gray1, fontSize: 14, fontWeight: '500' },
+  card: { backgroundColor: 'white', borderRadius: 16, padding: 16, marginBottom: 15, elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 3 },
+  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 },
+  incidentTitle: { fontSize: 16, fontWeight: '700', color: COLORS.secondary, flex: 1, marginRight: 10, lineHeight: 22 },
+  statusBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
+  statusText: { fontSize: 11, fontWeight: '700' },
+  cardBody: { borderBottomWidth: 1, borderBottomColor: '#F3F4F6', paddingBottom: 12, marginBottom: 12 },
+  infoRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 6 },
+  iconWidthFix: { width: 22, textAlign: 'center' },
+  infoText: { fontSize: 13, color: '#4B5563' },
+  actionButton: { backgroundColor: COLORS.primary, flexDirection: 'row', height: 45, borderRadius: 10, justifyContent: 'center', alignItems: 'center', gap: 6 },
+  actionButtonText: { color: 'white', fontWeight: 'bold', fontSize: 14 },
+  emptyContainer: { alignItems: 'center', marginTop: 120, paddingHorizontal: 40 },
+  emptyText: { textAlign: 'center', color: COLORS.gray1, marginTop: 15, fontSize: 15, lineHeight: 22, fontWeight: '500' }
 });
