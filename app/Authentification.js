@@ -1,7 +1,7 @@
 import { FontAwesome } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -14,22 +14,9 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
-import { authorize } from 'react-native-app-auth';
 import CountryPicker from 'react-native-country-picker-modal';
 import { requestOtp } from '../api/Auth'; // Import de ton service API
 import { COLORS } from '../Composants/themeConfig';
-import { handleGoogleLoginFlow } from '../services/googleAuth'; // Ajuste le chemin selon ton projet
-
-// Configuration OAuth Google pour react-native-app-auth
-const googleConfig = {
-  issuer: 'https://accounts.google.com',
-  clientId: Platform.select({
-    ios: process.env.EXPO_PUBLIC_IOS_CLIENT_ID,
-    android: process.env.EXPO_PUBLIC_ANDROID_CLIENT_ID,
-  }),
-  redirectUrl: 'mapactionapp:/oauth2redirect', // Ton scheme synchronisé
-  scopes: ['openid', 'profile', 'email'],
-};
 
 export default function LoginScreen() {
   const navigation = useNavigation();
@@ -40,50 +27,25 @@ export default function LoginScreen() {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // LOG DE SÉCURITÉ ET DE DIAGNOSTIC AU CHARGEMENT
-  useEffect(() => {
-    console.log("=== DIAGNOSTIC CONFIGURATION GOOGLE ===");
-    console.log("Plateforme détectée :", Platform.OS);
-    console.log("Clé Android (.env) :", process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID_ANDROID);
-    console.log("Clé iOS (.env) :", process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID_IOS);
-    console.log("mapbox :", process.env.mapboxToken);
-    console.log("Clé finale injectée dans googleConfig :", googleConfig.clientId);
-    console.log("Redirect URL configuré :", googleConfig.redirectUrl);
-    console.log("=======================================");
-  }, []);
+  // Détection automatique de la plateforme
+  const isAndroid = Platform.OS === 'android';
 
-  // Fonction de connexion Google via react-native-app-auth
-  const handleGoogleSignIn = async () => {
-    console.log("-> Clic sur le bouton Google détecté.");
-    
-    if (!googleConfig.clientId) {
-      console.error("-> Erreur : Le clientId est vide ou undefined ! Vérifie ton fichier .env.");
-      Alert.alert("Erreur de configuration", "La clé d'authentification Google (clientId) est manquante.");
-      return;
-    }
+  // MESSAGE INDISPONIBILITÉ GOOGLE
+  const handleGoogleSignIn = () => {
+    console.log("-> Tentative de connexion Google interceptée (Indisponible).");
+    Alert.alert(
+      "Fonctionnalité indisponible", 
+      "La connexion via Google n'est pas disponible pour le moment. Veuillez utiliser la connexion par numéro de téléphone."
+    );
+  };
 
-    setLoading(true);
-    try {
-      console.log("-> Lancement du module natif d'authentification Google...");
-      // 1. Déclencement du flux natif Google
-      const authState = await authorize(googleConfig);
-      console.log("-> [SUCCESS] Jeton d'accès récupéré avec succès :", authState.accessToken);
-
-      // 2. Envoi du token à ton flux Django
-      const mockDispatch = (action) => console.log("-> Dispatch Redux :", action);
-      
-      console.log("-> Envoi du token vers handleGoogleLoginFlow...");
-      await handleGoogleLoginFlow(authState.accessToken, mockDispatch, router);
-
-    } catch (error) {
-      console.error("-> [ERROR] Échec de l'authentification Google :", error);
-      Alert.alert(
-        "Connexion annulée", 
-        "Impossible de se connecter avec Google. Vérifie tes paramètres ou réessaye."
-      );
-    } finally {
-      setLoading(false);
-    }
+  // MESSAGE INDISPONIBILITÉ APPLE
+  const handleAppleSignIn = () => {
+    console.log("-> Tentative de connexion Apple interceptée (Indisponible).");
+    Alert.alert(
+      "Fonctionnalité indisponible", 
+      "La connexion via Apple n'est pas disponible pour le moment. Veuillez utiliser la connexion par numéro de téléphone."
+    );
   };
 
   // Connexion classique par OTP
@@ -181,7 +143,7 @@ export default function LoginScreen() {
           <View style={styles.line} />
         </View>
 
-        {/* BOUTON GOOGLE NATIVE-APP-AUTH */}
+        {/* BOUTON GOOGLE */}
         <TouchableOpacity 
           style={styles.socialButton} 
           onPress={handleGoogleSignIn}
@@ -191,11 +153,17 @@ export default function LoginScreen() {
           <Text style={styles.socialButtonText}>Continuer avec Google</Text>
         </TouchableOpacity>
 
-        {/* AUTRES BOUTONS */}
-        <TouchableOpacity style={styles.socialButton}>
-          <FontAwesome name="apple" size={20} color="black" />
-          <Text style={styles.socialButtonText}>Continuer avec Apple</Text>
-        </TouchableOpacity>
+        {/* BOUTON APPLE (Affiché uniquement sur iOS) */}
+        {!isAndroid && (
+          <TouchableOpacity 
+            style={styles.socialButton}
+            onPress={handleAppleSignIn}
+            disabled={loading}
+          >
+            <FontAwesome name="apple" size={20} color="black" />
+            <Text style={styles.socialButtonText}>Continuer avec Apple</Text>
+          </TouchableOpacity>
+        )}
 
         <TouchableOpacity 
           style={styles.guestButton} 

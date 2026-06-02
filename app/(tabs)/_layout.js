@@ -36,7 +36,7 @@ export default function TabLayout() {
         name="scan"
         options={{
           title: 'Scan',
-          tabBarIcon: ({ color }) => <Ionicons name="scan-outline" size={24} color={color} />,
+          tabBarIcon: ({ color }) => <Ionicons name="scan-circle-outline" size={24} color={color} />,
           tabBarStyle: { display: 'none' }, // On le définit ici directement
           headerShown: false,
         }}

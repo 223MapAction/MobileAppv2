@@ -234,7 +234,7 @@ export default function HomeScreen() {
             onPress={() => router.push('/scan')}
           >
             <View style={styles.buttonContent}>
-              <Ionicons name="scan-outline" size={24} color={COLORS.white} style={styles.buttonIcon} />
+              <Ionicons name="scan-circle-outline" size={24} color={COLORS.white} style={styles.buttonIcon} />
               <Text style={styles.buttonText}>Scanner l'incident</Text>
             </View>
           </TouchableOpacity>

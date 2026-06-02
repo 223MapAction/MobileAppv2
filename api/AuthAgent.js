@@ -36,7 +36,7 @@ export async function loginAgent(phone, pin) {
 
       return { ok: true, data: resultData };
     } else {
-      console.error("-> [API SERVER ERROR] Le serveur a rejeté la connexion :", resultData);
+      // console.error("-> [API SERVER ERROR] Le serveur a rejeté la connexion :", resultData);
       return { ok: false, error: resultData };
     }
   } catch (error) {

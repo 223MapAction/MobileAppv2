@@ -1,9 +1,11 @@
 import { FontAwesome, MaterialCommunityIcons } from '@expo/vector-icons';
-import { useEffect, useState } from 'react';
+import { useRouter } from 'expo-router';
+import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
   FlatList,
+  Platform,
   RefreshControl,
   StyleSheet,
   Text,
@@ -17,9 +19,26 @@ import { getAssignedIncidents } from '../../api/AgentIncidents';
 import { getAuthUser } from '../../storage/authStorageAgent';
 
 export default function AssignerScreen() {
+  const router = useRouter();
   const [incidents, setIncidents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+
+  // FILTRAGE : On ne garde que les incidents qui ne sont PAS au statut 'reported'
+  const activeIncidents = useMemo(() => {
+    return incidents.filter(item => item.status !== 'reported');
+  }, [incidents]);
+
+  // Mémorisation des incidents indexés par ID pour un accès instantané
+  const incidentsCache = useMemo(() => {
+    const cache = {};
+    incidents.forEach((item) => {
+      if (item.id) {
+        cache[item.id] = item;
+      }
+    });
+    return cache;
+  }, [incidents]);
 
   // Fonction principale de chargement des données
   const fetchMissions = async (showRefreshIndicator = false) => {
@@ -27,45 +46,83 @@ export default function AssignerScreen() {
     else setLoading(true);
 
     try {
-      // 1. On récupère la session de l'agent dans le stockage du téléphone
       const session = await getAuthUser();
       
       if (session && session.token) {
-        // 2. On appelle l'API en lui fournissant le token récupéré
         const result = await getAssignedIncidents(session.token);
         
-        if (result.ok) {
-          setIncidents(result.data); // On met les incidents dans notre State pour l'affichage
+        if (result && result.ok) {
+          setIncidents(result.data || []);
         } else {
-          Alert.alert("Erreur Serveur", result.error?.message || "Impossible de récupérer vos assignations.");
+          Alert.alert(
+            "Service momentanément indisponible", 
+            "Impossible de synchroniser vos missions actuelles. Veuillez réessayer dans quelques instants."
+          );
         }
       } else {
-        Alert.alert("Session introuvable", "Veuillez vous reconnecter pour accéder à vos tâches.");
+        Alert.alert(
+          "Session expirée", 
+          "Votre session de connexion n'est plus valide. Veuillez vous reconnecter."
+        );
       }
     } catch (err) {
-      console.error("Erreur lors du cycle fetchMissions :", err);
+      console.error("Erreur critique lors du cycle fetchMissions :", err);
+      Alert.alert(
+        "Une erreur est survenue",
+        "Un problème de connexion au serveur a été détecté. Vérifiez votre connexion Internet."
+      );
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
   };
 
-  // Charger automatiquement les incidents dès l'affichage de la page
   useEffect(() => {
     fetchMissions();
   }, []);
 
   // Design d'une carte d'incident unique
   const renderIncidentCard = ({ item }) => {
-    // Formatage propre de la date limite reçue (ex: "2026-06-01T17:00:00Z")
-    const expiration = new Date(item.deadline).toLocaleDateString('fr-FR', {
-      day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'
-    });
+    let expiration = "Non définie";
+
+    // Sécurisation du formatage de la date
+    try {
+      if (item.deadline) {
+        expiration = new Date(item.deadline).toLocaleDateString('fr-FR', {
+          day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'
+        });
+      }
+    } catch (dateError) {
+      console.error("Erreur formatage date :", dateError);
+    }
 
     return (
-      <View style={styles.card}>
+      <TouchableOpacity 
+        style={styles.card}
+        activeOpacity={0.85}
+        onPress={() => {
+          if (item && item.id) {
+            // Récupération de l'élément complet mémorisé dans le cache
+            const cachedItem = incidentsCache[item.id];
+
+            // Navigation avec injection des détails complets
+            router.push({
+              pathname: '/DetailIncidentAssigner',
+              params: { 
+                id: item.id, 
+                incident_title: item.incident_title || "Incident sans titre",
+                fromAssignment: 'true',
+                // On passe le sous-objet technique sérialisé en JSON string
+                incident_detail: JSON.stringify(cachedItem?.incident_detail || {})
+              }
+            });
+          } else {
+            Alert.alert("Information", "Impossible d'ouvrir les détails : Identifiant de mission manquant.");
+          }
+        }}
+      >
         <View style={styles.cardHeader}>
-          <Text style={styles.incidentTitle}>{item.incident_title}</Text>
+          <Text style={styles.incidentTitle}>{item.incident_title || "Incident sans titre"}</Text>
           <View style={[styles.statusBadge, { backgroundColor: item.status === 'pending' ? '#FEF3C7' : '#D1FAE5' }]}>
             <Text style={[styles.statusText, { color: item.status === 'pending' ? '#D97706' : '#10B981' }]}>
               {item.status === 'pending' ? 'En attente' : 'Rapporté'}
@@ -76,7 +133,7 @@ export default function AssignerScreen() {
         <View style={styles.cardBody}>
           <View style={styles.infoRow}>
             <FontAwesome name="user" size={14} color={COLORS.gray1} style={styles.iconWidthFix} />
-            <Text style={styles.infoText}>Donneur d'ordre : {item.assigned_by_name}</Text>
+            <Text style={styles.infoText}>Donneur d'ordre : {item.assigned_by_name || "Non spécifié"}</Text>
           </View>
 
           <View style={styles.infoRow}>
@@ -87,19 +144,14 @@ export default function AssignerScreen() {
           </View>
         </View>
 
-        {/* Bouton pour déclencher l'intervention sur le terrain */}
-        <TouchableOpacity 
-          style={styles.actionButton}
-          onPress={() => Alert.alert("Intervention", `Préparation du rapport terrain pour l'incident #${item.incident}`)}
-        >
-          <Text style={styles.actionButtonText}>Intervenir sur le terrain</Text>
-          <MaterialCommunityIcons name="arrow-right" size={16} color="white" />
-        </TouchableOpacity>
-      </View>
+        <View style={styles.cardFooter}>
+          <Text style={styles.footerText}>Voir plus de détails (Photo, Audio, État...)</Text>
+          <MaterialCommunityIcons name="chevron-right" size={18} color={COLORS.primary} />
+        </View>
+      </TouchableOpacity>
     );
   };
 
-  // Écran d'attente pendant le chargement initial
   if (loading) {
     return (
       <View style={styles.centerContainer}>
@@ -111,16 +163,37 @@ export default function AssignerScreen() {
 
   return (
     <View style={styles.container}>
+
+      {/* BARRE EN-TÊTE UX : TITRE + BOUTON HISTORIQUE REPORTE */}
+    <View style={styles.uxHeader}>
+      <View>
+        <Text style={styles.uxHeaderTitle}>Missions Terrain</Text>
+        <Text style={styles.uxHeaderSubtitle}>Vos interventions en attente</Text>
+      </View>
+      
+      <TouchableOpacity 
+        style={styles.historyCircleBtn}
+        onPress={() => router.push('/HistoriqueReportsScreen')} // Ajuste le chemin selon ton Expo Router
+        activeOpacity={0.7}
+      >
+        <MaterialCommunityIcons name="clipboard-text-clock-outline" size={22} color={COLORS.primary} />
+        <Text style={styles.historyBtnLabel}>Mes Reports</Text>
+      </TouchableOpacity>
+    </View>
+
+
       <FlatList
-        data={incidents}
-        keyExtractor={(item) => item.id.toString()}
+        data={activeIncidents} // CORRECTION : Utilise le tableau filtré 'activeIncidents' au lieu de 'incidents'
+        keyExtractor={(item, index) => item?.id ? item.id.toString() : index.toString()}
         renderItem={renderIncidentCard}
         contentContainerStyle={styles.listPadding}
-        // Gère le geste "tirer pour rafraîchir" la liste
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={() => fetchMissions(true)} colors={[COLORS.primary]} />
+          <RefreshControl 
+            refreshing={refreshing} 
+            onRefresh={() => fetchMissions(true)} 
+            colors={[COLORS.primary]} 
+          />
         }
-        // S'affiche si l'agent n'a aucun incident dans son tableau
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
             <MaterialCommunityIcons name="clipboard-check-outline" size={70} color={COLORS.gray1} />
@@ -133,6 +206,32 @@ export default function AssignerScreen() {
 }
 
 const styles = StyleSheet.create({
+  // À AJOUTER DANS LE STYLE_SHEET DE ASSIGNERSCREEN
+  uxHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: 'white',
+    paddingHorizontal: 16,
+    paddingTop: Platform.OS === 'ios' ? 50 : 20,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  uxHeaderTitle: { fontSize: 20, fontWeight: '800', color: COLORS.secondary },
+  uxHeaderSubtitle: { fontSize: 12, color: '#6B7280', marginTop: 1 },
+  historyCircleBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    // backgroundColor: '#4f719e',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    gap: 6,
+    borderWidth: 1,
+    borderColor: '#BFDBFE'
+  },
+  historyBtnLabel: { color: COLORS.primary, fontSize: 12, fontWeight: '700' },
   container: { flex: 1, backgroundColor: '#F9FAFB' },
   listPadding: { padding: 15, paddingBottom: 30 },
   centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
@@ -142,12 +241,20 @@ const styles = StyleSheet.create({
   incidentTitle: { fontSize: 16, fontWeight: '700', color: COLORS.secondary, flex: 1, marginRight: 10, lineHeight: 22 },
   statusBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
   statusText: { fontSize: 11, fontWeight: '700' },
-  cardBody: { borderBottomWidth: 1, borderBottomColor: '#F3F4F6', paddingBottom: 12, marginBottom: 12 },
+  cardBody: { paddingBottom: 8 },
   infoRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 6 },
   iconWidthFix: { width: 22, textAlign: 'center' },
   infoText: { fontSize: 13, color: '#4B5563' },
-  actionButton: { backgroundColor: COLORS.primary, flexDirection: 'row', height: 45, borderRadius: 10, justifyContent: 'center', alignItems: 'center', gap: 6 },
-  actionButtonText: { color: 'white', fontWeight: 'bold', fontSize: 14 },
+  cardFooter: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
+    alignItems: 'center', 
+    borderTopWidth: 1, 
+    borderTopColor: '#F3F4F6', 
+    paddingTop: 12, 
+    marginTop: 8 
+  },
+  footerText: { color: COLORS.primary, fontSize: 13, fontWeight: '600' },
   emptyContainer: { alignItems: 'center', marginTop: 120, paddingHorizontal: 40 },
   emptyText: { textAlign: 'center', color: COLORS.gray1, marginTop: 15, fontSize: 15, lineHeight: 22, fontWeight: '500' }
 });

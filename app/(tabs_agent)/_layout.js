@@ -1,4 +1,4 @@
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons'; // Inclus dans Expo
+import { Ionicons } from '@expo/vector-icons'; // Inclus dans Expo
 import { Tabs } from 'expo-router';
 import { useState } from 'react';
 import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -61,14 +61,14 @@ export default function TabLayout() {
         name="assigner"
         options={{
           title: 'Incident Assigner',
-          tabBarIcon: ({ color }) => <MaterialCommunityIcons name="presentation" size={24} color={color} />,
+          tabBarIcon: ({ color }) => <Ionicons name="person-add-outline" size={24} color={color} />,
         }}
       />
       <Tabs.Screen
         name="index"
         options={{
           title: 'Incident Signaler',
-          tabBarIcon: ({ color }) => <MaterialCommunityIcons name="navigation-outline" size={24} color={color} />,
+          tabBarIcon: ({ color }) => <Ionicons name="warning" size={24} color={color} />,
         }}
       />
       <Tabs.Screen
