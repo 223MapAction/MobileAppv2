@@ -273,6 +273,12 @@ export default function ProfilAgentScreen() {
               onPress={handleLogout} 
             />
           </View>
+          <View style={styles.cardGroup}>
+            <MenuItem 
+              icon="log-out-outline" 
+              title="Supprimer mon compte" 
+            />
+          </View>
         </View>
 
       </ScrollView>

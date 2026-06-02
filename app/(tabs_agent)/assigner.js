@@ -177,7 +177,7 @@ export default function AssignerScreen() {
         activeOpacity={0.7}
       >
         <MaterialCommunityIcons name="clipboard-text-clock-outline" size={22} color={COLORS.primary} />
-        <Text style={styles.historyBtnLabel}>Mes Reports</Text>
+        <Text style={styles.historyBtnLabel}>Mes Rapports</Text>
       </TouchableOpacity>
     </View>
 

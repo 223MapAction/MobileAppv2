@@ -60,14 +60,14 @@ export default function TabLayout() {
       <Tabs.Screen
         name="assigner"
         options={{
-          title: 'Incident Assigner',
+          title: 'Incidents Assignés',
           tabBarIcon: ({ color }) => <Ionicons name="person-add-outline" size={24} color={color} />,
         }}
       />
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Incident Signaler',
+          title: 'Incidents Signalés',
           tabBarIcon: ({ color }) => <Ionicons name="warning" size={24} color={color} />,
         }}
       />

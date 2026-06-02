@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
+  Platform,
   RefreshControl,
   StyleSheet,
   Text,
@@ -113,10 +114,20 @@ export default function HistoriqueReportsScreen() {
 
   return (
     <View style={styles.container}>
-      {/* HEADER DE LA PAGE */}
+      {/* HEADER DE LA PAGE AVEC BOUTON RETOUR INTEGRÉ */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Mes Rapports Envoyés</Text>
-        <Text style={styles.headerSubtitle}>{reports.length} rapport(s) enregistré(s)</Text>
+        <TouchableOpacity 
+          style={styles.backButton} 
+          onPress={() => router.back()}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="arrow-back" size={24} color="#1F2937" />
+        </TouchableOpacity>
+        
+        <View style={styles.headerTitleContainer}>
+          <Text style={styles.headerTitle}>Mes Rapports Envoyés</Text>
+          <Text style={styles.headerSubtitle}>{reports.length} rapport(s) enregistré(s)</Text>
+        </View>
       </View>
 
       {error ? (
@@ -160,10 +171,20 @@ const styles = StyleSheet.create({
   header: {
     backgroundColor: 'white',
     paddingHorizontal: 16,
-    paddingTop: 50,
+    paddingTop: Platform.OS === 'ios' ? 55 : 35,
     paddingBottom: 16,
     borderBottomWidth: 1,
     borderColor: '#E5E7EB',
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  backButton: {
+    padding: 4,
+    marginRight: 12,
+    borderRadius: 8,
+  },
+  headerTitleContainer: {
+    flex: 1,
   },
   headerTitle: { fontSize: 20, fontWeight: '800', color: '#1F2937' },
   headerSubtitle: { fontSize: 13, color: '#6B7280', marginTop: 2 },
