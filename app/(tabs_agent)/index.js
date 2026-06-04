@@ -13,10 +13,18 @@ const { width, height } = Dimensions.get('window');
 
 const STATUS_FILTERS = [
   { label: 'Tous', value: 'all' },
-  { label: 'declared', value: 'Déclarés' },
-  { label: 'taken_into_account', value: 'Prise en compte' },
-  { label: 'resolved', value: 'Résolus' },
+  { label: 'Déclarés', value: 'declared' },
+  { label: 'Prise en compte', value: 'taken_into_account' },
+  { label: 'Résolus', value: 'resolved' },
 ];
+
+const STATUS_LABELS = {
+  'declared': 'Déclaré',
+  'taken_into_account': 'Pris en compte',
+  'resolved': 'Résolu',
+};
+
+
 
 export default function AgentHomeScreen() {
   const router = useRouter();
@@ -152,7 +160,10 @@ export default function AgentHomeScreen() {
             </Text>
             <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.etat) }]}>
               <Text style={styles.statusText}>
-                {item.isOffline ? "EN ATTENTE" : (item.etat || "Inconnu")}
+                {/* 2. MODIFICATION : Traduction du texte du badge ici */}
+                {item.isOffline 
+                  ? "EN ATTENTE" 
+                  : (STATUS_LABELS[item.etat] || item.etat || "Inconnu")}
               </Text>
             </View>
           </View>

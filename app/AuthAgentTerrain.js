@@ -113,7 +113,7 @@ export default function AuthAgentTerrain() {
           </View>
           <TextInput
             style={styles.input}
-            placeholder="Numéro de téléphone"
+            placeholder="Téléphone"
             keyboardType="phone-pad"
             value={phoneNumber}
             onChangeText={setPhoneNumber}
