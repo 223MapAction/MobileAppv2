@@ -13,9 +13,9 @@ const { width, height } = Dimensions.get('window');
 
 const STATUS_FILTERS = [
   { label: 'Tous', value: 'all' },
-  { label: 'Déclarés', value: 'declared' },
-  { label: 'Prise en compte', value: 'taken_into_account' },
-  { label: 'Résolus', value: 'resolved' },
+  { label: 'declared', value: 'Déclarés' },
+  { label: 'taken_into_account', value: 'Prise en compte' },
+  { label: 'resolved', value: 'Résolus' },
 ];
 
 export default function AgentHomeScreen() {
