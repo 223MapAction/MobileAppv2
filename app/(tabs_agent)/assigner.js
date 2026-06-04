@@ -1,6 +1,6 @@
 import { FontAwesome, MaterialCommunityIcons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useFocusEffect, useRouter } from 'expo-router'; // 🔑 Ajout de useFocusEffect
+import { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -40,10 +40,10 @@ export default function AssignerScreen() {
     return cache;
   }, [incidents]);
 
-  // Fonction principale de chargement des données
-  const fetchMissions = async (showRefreshIndicator = false) => {
+  // 🔑 Fonction modifiée avec gestion du mode silencieux
+  const fetchMissions = async (showRefreshIndicator = false, isSilent = false) => {
     if (showRefreshIndicator) setRefreshing(true);
-    else setLoading(true);
+    else if (!isSilent) setLoading(true); // Pas de loader central si rafraîchissement en tâche de fond
 
     try {
       const session = await getAuthUser();
@@ -77,15 +77,18 @@ export default function AssignerScreen() {
     }
   };
 
-  useEffect(() => {
-    fetchMissions();
-  }, []);
+  // 🔑 Déclencheur intelligent : s'exécute à l'initialisation ET à chaque retour sur cet écran
+  useFocusEffect(
+    useCallback(() => {
+      // Si on a déjà des données, on rafraîchit en arrière-plan (silencieusement)
+      fetchMissions(false, incidents.length > 0);
+    }, [])
+  );
 
   // Design d'une carte d'incident unique
   const renderIncidentCard = ({ item }) => {
     let expiration = "Non définie";
 
-    // Sécurisation du formatage de la date
     try {
       if (item.deadline) {
         expiration = new Date(item.deadline).toLocaleDateString('fr-FR', {
@@ -102,17 +105,14 @@ export default function AssignerScreen() {
         activeOpacity={0.85}
         onPress={() => {
           if (item && item.id) {
-            // Récupération de l'élément complet mémorisé dans le cache
             const cachedItem = incidentsCache[item.id];
 
-            // Navigation avec injection des détails complets
             router.push({
               pathname: '/DetailIncidentAssigner',
               params: { 
                 id: item.id, 
                 incident_title: item.incident_title || "Incident sans titre",
                 fromAssignment: 'true',
-                // On passe le sous-objet technique sérialisé en JSON string
                 incident_detail: JSON.stringify(cachedItem?.incident_detail || {})
               }
             });
@@ -152,7 +152,7 @@ export default function AssignerScreen() {
     );
   };
 
-  if (loading) {
+  if (loading && incidents.length === 0) {
     return (
       <View style={styles.centerContainer}>
         <ActivityIndicator size="large" color={COLORS.primary} />
@@ -163,27 +163,24 @@ export default function AssignerScreen() {
 
   return (
     <View style={styles.container}>
-
-      {/* BARRE EN-TÊTE UX : TITRE + BOUTON HISTORIQUE REPORTE */}
-    <View style={styles.uxHeader}>
-      <View>
-        <Text style={styles.uxHeaderTitle}>Missions Terrain</Text>
-        <Text style={styles.uxHeaderSubtitle}>Vos interventions en attente</Text>
+      <View style={styles.uxHeader}>
+        <View>
+          <Text style={styles.uxHeaderTitle}>Missions Terrain</Text>
+          <Text style={styles.uxHeaderSubtitle}>Vos interventions en attente</Text>
+        </View>
+        
+        <TouchableOpacity 
+          style={styles.historyCircleBtn}
+          onPress={() => router.push('/HistoriqueReportsScreen')} 
+          activeOpacity={0.7}
+        >
+          <MaterialCommunityIcons name="clipboard-text-clock-outline" size={22} color={COLORS.primary} />
+          <Text style={styles.historyBtnLabel}>Mes Rapports</Text>
+        </TouchableOpacity>
       </View>
-      
-      <TouchableOpacity 
-        style={styles.historyCircleBtn}
-        onPress={() => router.push('/HistoriqueReportsScreen')} // Ajuste le chemin selon ton Expo Router
-        activeOpacity={0.7}
-      >
-        <MaterialCommunityIcons name="clipboard-text-clock-outline" size={22} color={COLORS.primary} />
-        <Text style={styles.historyBtnLabel}>Mes Rapports</Text>
-      </TouchableOpacity>
-    </View>
-
 
       <FlatList
-        data={activeIncidents} // CORRECTION : Utilise le tableau filtré 'activeIncidents' au lieu de 'incidents'
+        data={activeIncidents} 
         keyExtractor={(item, index) => item?.id ? item.id.toString() : index.toString()}
         renderItem={renderIncidentCard}
         contentContainerStyle={styles.listPadding}
@@ -206,7 +203,6 @@ export default function AssignerScreen() {
 }
 
 const styles = StyleSheet.create({
-  // À AJOUTER DANS LE STYLE_SHEET DE ASSIGNERSCREEN
   uxHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -223,7 +219,6 @@ const styles = StyleSheet.create({
   historyCircleBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    // backgroundColor: '#4f719e',
     paddingVertical: 8,
     paddingHorizontal: 12,
     borderRadius: 12,

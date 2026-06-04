@@ -118,7 +118,7 @@ export default function HistoriqueReportsScreen() {
       <View style={styles.header}>
         <TouchableOpacity 
           style={styles.backButton} 
-          onPress={() => router.back()}
+          onPress={() => router.replace('/(tabs_agent)/assigner')}
           activeOpacity={0.7}
         >
           <Ionicons name="arrow-back" size={24} color="#1F2937" />

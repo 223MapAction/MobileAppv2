@@ -14,12 +14,17 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
+// 1. IMPORTATION DE SAFE AREA INSETS
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS } from '../Composants/themeConfig';
 
 export default function DetailIncidentAgentScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
   
+  // 2. RECUPERATION DES INSETS DE SECURITE (HAUT, BAS, ETC.)
+  const insets = useSafeAreaInsets(); 
+
   const [incidentDetail, setIncidentDetail] = useState(null);
   const [sound, setSound] = useState(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -41,7 +46,6 @@ export default function DetailIncidentAgentScreen() {
     return sound ? () => { sound.unloadAsync(); } : undefined;
   }, [sound]);
 
-  // Fonction pour ouvrir la navigation GPS (Google Maps / Apple Maps)
   const handleOpenNavigation = () => {
     const lat = incidentDetail?.lattitude;
     const lon = incidentDetail?.longitude;
@@ -51,7 +55,6 @@ export default function DetailIncidentAgentScreen() {
       return;
     }
 
-    // URL universelle fonctionnelle sur iOS et Android
     const label = encodeURIComponent(incidentDetail.title || "Incident Terrain");
     const url = Platform.select({
       ios: `maps:0,0?q=${lat},${lon}(${label})`,
@@ -63,7 +66,6 @@ export default function DetailIncidentAgentScreen() {
         if (supported) {
           return Linking.openURL(url);
         } else {
-          // Fallback sur le navigateur web si l'app native échoue
           const browserUrl = `http://googleusercontent.com/maps.google.com/?q=${lat},${lon}`;
           return Linking.openURL(browserUrl);
         }
@@ -132,8 +134,12 @@ export default function DetailIncidentAgentScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: '#F9FAFB' }}>
-      <ScrollView style={{ flex: 1 }} bounces={false} contentContainerStyle={{ paddingBottom: 100 }}>
-        {/* SECTION HEADER IMAGE */}
+      {/* 3. ADAPTATION DU PADDING INFERIEUR DU SCROLLVIEW POUR AJOUTER LA MARGE DU SAFE AREA + TAILLE DES BOUTONS */}
+      <ScrollView 
+        style={{ flex: 1 }} 
+        bounces={false} 
+        contentContainerStyle={{ paddingBottom: 100 + insets.bottom }}
+      >
         <View style={styles.imageContainer}>
           {incidentDetail.photo ? (
             <Image source={{ uri: incidentDetail.photo }} style={styles.mainImage} />
@@ -149,9 +155,7 @@ export default function DetailIncidentAgentScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* CONTENU PRINCIPAL */}
         <View style={styles.contentCard}>
-          {/* TITRE & STATUT */}
           <View style={styles.headerRow}>
             <Text style={styles.title}>{incidentDetail.title || params.incident_title || "Sans titre"}</Text>
             <View style={[styles.statusBadge, { backgroundColor: badge.bg }]}>
@@ -159,7 +163,6 @@ export default function DetailIncidentAgentScreen() {
             </View>
           </View>
 
-          {/* LOCALISATION / ZONE */}
           <View style={styles.metaBox}>
             <View style={styles.metaRow}>
               <MaterialCommunityIcons name="map-marker-radius" size={18} color={COLORS.primary} />
@@ -178,7 +181,6 @@ export default function DetailIncidentAgentScreen() {
             )}
           </View>
 
-          {/* DESCRIPTION */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Description terrain</Text>
             <Text style={styles.descriptionText}>
@@ -186,7 +188,6 @@ export default function DetailIncidentAgentScreen() {
             </Text>
           </View>
 
-          {/* COMPOSANT AUDIO SI DISPONIBLE */}
           {incidentDetail.audio && (
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Note Vocale jointe</Text>
@@ -218,9 +219,11 @@ export default function DetailIncidentAgentScreen() {
         </View>
       </ScrollView>
 
-      {/* ZONE FIXE DES ACTIONS TERRAIN (BAS DE PAGE) */}
-      <View style={styles.actionToolbar}>
-        {/* BOUTON GPS GOOGLE MAPS */}
+      {/* 4. MODIFICATION ICI : On applique dynamiquement la marge basse du système */}
+      <View style={[
+        styles.actionToolbar, 
+        { paddingBottom: insets.bottom > 0 ? insets.bottom + 6 : 14 }
+      ]}>
         <TouchableOpacity 
           style={styles.navButton} 
           onPress={handleOpenNavigation}
@@ -230,13 +233,12 @@ export default function DetailIncidentAgentScreen() {
           <Text style={styles.navButtonText}>Aller sur la zone</Text>
         </TouchableOpacity>
 
-        {/* BOUTON FAIRE UN RAPPORT */}
         <TouchableOpacity 
           style={styles.reportButton} 
           onPress={() => {
             router.push({
               pathname: '/FormulaireReportScreen', 
-              params: { incidentId: incidentDetail.id } // CORRECTION : Extrait l'ID de l'objet parsé
+              params: { incidentId: incidentDetail.id }
             });
           }}
           activeOpacity={0.8}
@@ -284,7 +286,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     paddingHorizontal: 16,
     paddingTop: 12,
-    paddingBottom: Platform.OS === 'ios' ? 28 : 14,
+    // J'ai enlevé le paddingBottom fixe d'ici pour le mettre en ligne (inline style)
     borderTopWidth: 1,
     borderColor: '#E5E7EB',
     justifyContent: 'space-between',

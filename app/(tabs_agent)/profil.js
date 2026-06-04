@@ -162,9 +162,36 @@ export default function ProfilAgentScreen() {
       setUser(null);
       router.replace('/Authentification'); 
     } catch (error) {
-      console.error("Erreur lors de la déconnexion de l'agent :", error);
+      console.error("Erreur lors du déconnexion de l'agent :", error);
       Alert.alert("Erreur", "Impossible de procéder à la déconnexion pour le moment.");
     }
+  };
+
+  // --- SUPPRESSION DU COMPTE ---
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      "Suppression du compte",
+      "Êtes-vous absolument sûr de vouloir supprimer votre compte ? Cette action est irréversible et effacera définitivement vos données.",
+      [
+        { text: "Annuler", style: "cancel" },
+        { 
+          text: "Supprimer définitivement", 
+          style: "destructive",
+          onPress: async () => {
+            try {
+              // TODO: Ajoutez ici votre appel API (ex: await delete_user(agentId, token)) si nécessaire.
+              await clearAuthUser().catch(() => null);
+              setUser(null);
+              router.replace('/Authentification');
+              Alert.alert("Compte supprimé", "Votre compte a été supprimé avec succès.");
+            } catch (error) {
+              console.error("Erreur lors de la suppression du compte :", error);
+              Alert.alert("Erreur", "Impossible de supprimer le compte pour le moment.");
+            }
+          }
+        }
+      ]
+    );
   };
 
   const firstName = (user?.first_name || '').trim();
@@ -262,9 +289,9 @@ export default function ProfilAgentScreen() {
           </View>
         </View>
 
-        {/* SECTION : CONNEXION */}
+        {/* SECTION : CONNEXION ET SECURITE */}
         <View style={styles.sectionContainer}>
-          <Text style={styles.sectionTitle}>Connexion</Text>
+          <Text style={styles.sectionTitle}>Connexion et sécurité</Text>
           <View style={styles.cardGroup}>
             <MenuItem 
               icon="log-out-outline" 
@@ -272,11 +299,13 @@ export default function ProfilAgentScreen() {
               color="#FF4444" 
               onPress={handleLogout} 
             />
-          </View>
-          <View style={styles.cardGroup}>
+            <View style={styles.divider} />
+            {/* BOUTON SUPPRIMER MON COMPTE EN ROUGE ACTIVÉ */}
             <MenuItem 
-              icon="log-out-outline" 
+              icon="trash-outline" 
               title="Supprimer mon compte" 
+              color="#FF4444" 
+              onPress={handleDeleteAccount}
             />
           </View>
         </View>
@@ -284,9 +313,9 @@ export default function ProfilAgentScreen() {
       </ScrollView>
 
       {/* FOOTER : VERSION */}
-      <View style={styles.footerVersion}>
+      {/* <View style={styles.footerVersion}>
         <Text style={styles.versionText}>version 1.0.0</Text>
-      </View>
+      </View> */}
 
       {/* MODAL : INFORMATION ET MODIFICATION DU PROFIL AGENT */}
       <Modal visible={isPersonalInfoOpen} transparent animationType="slide">
@@ -404,7 +433,7 @@ export default function ProfilAgentScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F9FAFB' },
   centered: { justifyContent: 'center', alignItems: 'center' },
-  scrollContent: { paddingBottom: 80 },
+  scrollContent: { paddingBottom: 100 }, // Légère augmentation du padding pour le nouveau bouton
   headerSection: { alignItems: 'center', paddingVertical: height * 0.04 },
   imageContainer: { position: 'relative', marginBottom: 15 },
   profileImage: { width: 100, height: 100, borderRadius: 50, borderWidth: 3, borderColor: COLORS.primary },
