@@ -5,7 +5,7 @@ import { useEffect } from 'react';
 import { Dimensions, StyleSheet, View } from 'react-native';
 import Mapimg1 from "../assets/mapAction1.png";
 import { COLORS } from '../Composants/themeConfig';
-import { getAuthUser, getTermsAccepted } from '../storage/authStorage';
+import { getAuthUser, getOnboardingViewed, getTermsAccepted } from '../storage/authStorage';
 
 const { width, height } = Dimensions.get('window');
 
@@ -15,12 +15,15 @@ export default function LandingPage() {
   useEffect(() => {
     const checkOnboarding = async () => {
       try {
+        const onboardingViewed = await getOnboardingViewed();
         const termsAccepted = await getTermsAccepted();
         const user = await getAuthUser();
 
         setTimeout(() => {
           if (!termsAccepted) {
             router.replace('/TermsAndConditions');
+          } else if (!onboardingViewed) {
+            router.replace('/OnboardingScreen');
           } else if (!user) {
             router.replace('/Authentification');
           } else {

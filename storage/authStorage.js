@@ -38,3 +38,20 @@ export async function getTermsAccepted() {
 export async function setTermsAccepted(accepted) {
   await AsyncStorage.setItem(TERMS_ACCEPTED_KEY, String(accepted));
 }
+
+export const getOnboardingViewed = async () => {
+  try {
+    const value = await AsyncStorage.getItem('@onboarding_viewed');
+    return value === 'true';
+  } catch (e) {
+    return false;
+  }
+};
+
+export const setOnboardingViewed = async () => {
+  try {
+    await AsyncStorage.setItem('@onboarding_viewed', 'true');
+  } catch (e) {
+    console.error("Erreur sauvegarde onboarding", e);
+  }
+};

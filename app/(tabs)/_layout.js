@@ -35,7 +35,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="scan"
         options={{
-          title: 'Scan',
+          title: 'Signaler',
           tabBarIcon: ({ color }) => <Ionicons name="scan-circle-outline" size={24} color={color} />,
           tabBarStyle: { display: 'none' }, // On le définit ici directement
           headerShown: false,

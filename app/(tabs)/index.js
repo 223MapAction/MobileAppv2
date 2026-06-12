@@ -6,7 +6,7 @@ import { ActivityIndicator, Dimensions, FlatList, ScrollView, StyleSheet, Text, 
 import { getMesIncidents } from '../../api/incidents';
 import { OfflineManager } from '../../api/offlineManager'; // Gestionnaire local
 import IMG_LOGIN from "../../assets/images/imageHomeLogin.png";
-import IMG1 from "../../assets/scanIMG1.png";
+import IMG1 from "../../assets/onboarding2.png";
 import { COLORS } from '../../Composants/themeConfig';
 import { getAuthToken, getAuthUser } from '../../storage/authStorage';
 
@@ -222,9 +222,12 @@ export default function HomeScreen() {
         <>
           <View style={styles.emptyContent}>
             <Image source={IMG1} style={styles.mainImage} contentFit="contain" />
-            <Text style={styles.title}>Reporter un incident</Text>
+            <Text style={styles.title}>Signaler un incident</Text>
             <Text style={styles.description}>
-              Décrivez le problème rencontré{"\n"} pour une prise en compte
+              Aidez à identifier les problèmes    
+            </Text>
+            <Text style={styles.description2}>
+               d’environnement autour de vous.    
             </Text>
           </View>
 
@@ -235,7 +238,7 @@ export default function HomeScreen() {
           >
             <View style={styles.buttonContent}>
               <Ionicons name="scan-circle-outline" size={24} color={COLORS.white} style={styles.buttonIcon} />
-              <Text style={styles.buttonText}>Scanner l'incident</Text>
+              <Text style={styles.buttonText}>Photographier l’incident</Text>
             </View>
           </TouchableOpacity>
         </>
@@ -266,10 +269,11 @@ const styles = StyleSheet.create({
   statusText: { color: 'white', fontSize: 9, fontWeight: 'bold', textTransform: 'uppercase' },
   emptyText: { textAlign: 'center', marginTop: 50, color: COLORS.gray1 },
   emptyContent: { flex: 1, justifyContent: 'center', alignItems: 'center', marginTop: -80 },
-  mainImage: { width: width * 0.8, height: height * 0.3, marginBottom: height * 0.03 },
+  mainImage: { width: width * 0.9, height: height * 0.4, marginBottom: height * 0.03 },
   title: { fontSize: width * 0.055, fontWeight: '700', color: COLORS.secondary, marginBottom: 10 },
-  description: { fontSize: width * 0.038, color: COLORS.gray1, textAlign: 'center' },
-  scanButton: { backgroundColor: COLORS.primary, paddingVertical: 15, borderRadius: 12, width: width * 0.8, position: 'absolute', bottom: 70, left: width * 0.10, alignItems: 'center', elevation: 5 },
+  description: { fontSize: width * 0.042, color: COLORS.gray1, textAlign: 'center' },
+  description2: { fontSize: width * 0.038, color: COLORS.gray1, textAlign: 'center' },
+  scanButton: { backgroundColor: COLORS.primary, paddingVertical: 15, borderRadius: 12, position: 'absolute', bottom: 70, left: width * 0.05,right: width * 0.05, alignItems: 'center', elevation: 5 },
   buttonContent: { flexDirection: 'row', alignItems: 'center' },
   buttonIcon: { marginRight: 10 },
   buttonText: { color: COLORS.white, fontSize: 18, fontWeight: 'bold' },

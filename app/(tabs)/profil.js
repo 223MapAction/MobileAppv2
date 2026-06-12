@@ -141,15 +141,56 @@ export default function ProfilScreen() {
     }
   };
 
-  const handleLogout = async () => {
-    try {
-      await clearAuthUser();
-      await clearAuthToken();
-      setUser(null);
-      router.replace('/Authentification'); 
-    } catch (error) {
-      console.error("Erreur logout:", error);
-    }
+    const handleLogout = () => {
+      Alert.alert(
+        "Déconnexion",
+        "Êtes-vous sûr de vouloir vous déconnecter ?",
+        [
+          { text: "Annuler", style: "cancel" },
+          { 
+            text: "Se déconnecter", 
+            style: "destructive",
+            onPress: async () => {
+              try {
+                await clearAuthUser().catch(() => null);
+                await clearAuthToken().catch(() => null);
+                setUser(null);
+                router.replace('/Authentification'); 
+              } catch (error) {
+                console.error("Erreur lors de la déconnexion de l'agent :", error);
+                Alert.alert("Erreur", "Impossible de procéder à la déconnexion pour le moment.");
+              }
+            }
+          }
+        ]
+      );
+    };
+ 
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      "Suppression du compte",
+      "Êtes-vous absolument sûr de vouloir supprimer votre compte ? Cette action est irréversible et effacera définitivement vos données.",
+      [
+        { text: "Annuler", style: "cancel" },
+        { 
+          text: "Supprimer définitivement", 
+          style: "destructive",
+          onPress: async () => {
+            try {
+              // TODO: Ajoutez ici votre appel API (ex: await delete_user(user.id, token))
+              await clearAuthUser().catch(() => null);
+              await clearAuthToken().catch(() => null);
+              setUser(null);
+              router.replace('/Authentification');
+              Alert.alert("Compte supprimé", "Votre compte a été supprimé avec succès.");
+            } catch (error) {
+              console.error("Erreur lors de la suppression du compte :", error);
+              Alert.alert("Erreur", "Impossible de supprimer le compte pour le moment.");
+            }
+          }
+        }
+      ]
+    );
   };
 
   const firstName = (user?.first_name || '').trim();
@@ -253,7 +294,7 @@ export default function ProfilScreen() {
 
         <Text style={styles.sectionTitle}>Connexion</Text>
         <View style={styles.sectionCard}>
-          <MenuItem icon="trash-outline" title="Supprimer mon compte" onPress={handleLogout} />
+          <MenuItem icon="trash-outline" title="Supprimer mon compte" onPress={handleDeleteAccount} />
           <MenuItem icon="log-out-outline" title="Déconnexion" color="#FF4444" onPress={handleLogout} />
         </View>
       </View>
@@ -307,7 +348,7 @@ export default function ProfilScreen() {
                 </View>
 
                 <View style={styles.inputGroup}>
-                  <Text style={styles.inputLabel}>Email (Optionnel)</Text>
+                  <Text style={styles.inputLabel}>Email <Text style={styles.requiredAsterisk}>*</Text></Text>
                   <TextInput 
                     style={styles.textInput}
                     keyboardType="email-address"

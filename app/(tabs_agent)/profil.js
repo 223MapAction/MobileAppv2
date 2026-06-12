@@ -156,15 +156,28 @@ export default function ProfilAgentScreen() {
     }
   };
 
-  const handleLogout = async () => {
-    try {
-      await clearAuthUser().catch(() => null);
-      setUser(null);
-      router.replace('/Authentification'); 
-    } catch (error) {
-      console.error("Erreur lors du déconnexion de l'agent :", error);
-      Alert.alert("Erreur", "Impossible de procéder à la déconnexion pour le moment.");
-    }
+  const handleLogout = () => {
+    Alert.alert(
+      "Déconnexion",
+      "Êtes-vous sûr de vouloir vous déconnecter ?",
+      [
+        { text: "Annuler", style: "cancel" },
+        { 
+          text: "Se déconnecter", 
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await clearAuthUser().catch(() => null);
+              setUser(null);
+              router.replace('/Authentification'); 
+            } catch (error) {
+              console.error("Erreur lors de la déconnexion de l'agent :", error);
+              Alert.alert("Erreur", "Impossible de procéder à la déconnexion pour le moment.");
+            }
+          }
+        }
+      ]
+    );
   };
 
   // --- SUPPRESSION DU COMPTE ---
@@ -295,17 +308,16 @@ export default function ProfilAgentScreen() {
           <View style={styles.cardGroup}>
             <MenuItem 
               icon="log-out-outline" 
-              title="Se déconnecter" 
-              color="#FF4444" 
-              onPress={handleLogout} 
+              title="Supprimer mon compte" 
+              onPress={handleDeleteAccount} 
             />
             <View style={styles.divider} />
             {/* BOUTON SUPPRIMER MON COMPTE EN ROUGE ACTIVÉ */}
             <MenuItem 
               icon="trash-outline" 
-              title="Supprimer mon compte" 
+              title="Déconnexion" 
               color="#FF4444" 
-              onPress={handleDeleteAccount}
+              onPress={handleLogout}
             />
           </View>
         </View>
@@ -363,7 +375,7 @@ export default function ProfilAgentScreen() {
                 </View>
 
                 <View style={styles.inputGroup}>
-                  <Text style={styles.inputLabel}>Email (Optionnel)</Text>
+                  <Text style={styles.inputLabel}>Email <Text style={styles.requiredAsterisk}>*</Text></Text>
                   <TextInput 
                     style={styles.textInput}
                     keyboardType="email-address"
