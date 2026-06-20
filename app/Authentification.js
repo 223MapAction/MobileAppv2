@@ -1,7 +1,9 @@
+import { useAuth, useClerk, useOAuth, useUser } from "@clerk/clerk-expo";
 import { FontAwesome } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import * as Linking from 'expo-linking';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -16,6 +18,7 @@ import {
 } from 'react-native';
 import CountryPicker from 'react-native-country-picker-modal';
 import { requestOtp } from '../api/Auth'; // Import de ton service API
+import { handleGoogleAuthWithClerk } from "../api/socialAuth";
 import { COLORS } from '../Composants/themeConfig';
 
 export default function LoginScreen() {
@@ -30,14 +33,39 @@ export default function LoginScreen() {
   // Détection automatique de la plateforme
   const isAndroid = Platform.OS === 'android';
 
-  // MESSAGE INDISPONIBILITÉ GOOGLE
-  const handleGoogleSignIn = () => {
-    console.log("-> Tentative de connexion Google interceptée (Indisponible).");
-    Alert.alert(
-      "Fonctionnalité indisponible", 
-      "La connexion via Google n'est pas disponible pour le moment. Veuillez utiliser la connexion par numéro de téléphone."
-    );
+  const { isSignedIn, isLoaded } = useAuth();
+  const { user: clerkUser } = useUser();
+  const { startOAuthFlow } = useOAuth({ strategy: "oauth_google" });
+
+useEffect(() => {
+    if (isLoaded && isSignedIn && !loading) {
+      console.log("Utilisateur détecté comme connecté, redirection vers les onglets...");
+
+    }
+  }, [isSignedIn, isLoaded]);
+
+const clerk = useClerk();
+
+  const handleGoogleSignIn = async () => {
+    setLoading(true);
+    try {
+      
+      const redirectUrl = Linking.createURL('/(tabs)', { scheme: 'mapactionapp' });
+      const result = await handleGoogleAuthWithClerk(startOAuthFlow, clerk);
+      
+      if (result && result.success) {
+        console.log("Connexion réussie !");
+        router.replace("/(tabs)");
+      }
+    } catch (error) {
+      Alert.alert("Erreur", error.message);
+    } finally {
+      setLoading(false);
+    }
   };
+  if (!isLoaded) {
+    return null; 
+  }
 
   // MESSAGE INDISPONIBILITÉ APPLE
   const handleAppleSignIn = () => {
@@ -144,14 +172,16 @@ export default function LoginScreen() {
         </View>
 
         {/* BOUTON GOOGLE */}
-        <TouchableOpacity 
-          style={styles.socialButton} 
-          onPress={handleGoogleSignIn}
-          disabled={loading}
-        >
-          <FontAwesome name="google" size={20} color="#DB4437" />
-          <Text style={styles.socialButtonText}>Continuer avec Google</Text>
-        </TouchableOpacity>
+       <TouchableOpacity 
+      style={styles.socialButton} 
+      onPress={handleGoogleSignIn}
+      disabled={loading}
+    >
+      <FontAwesome name="google" size={20} color="#DB4437" />
+      <Text style={styles.socialButtonText}>
+        {loading ? "Chargement..." : "Continuer avec Google"}
+      </Text>
+    </TouchableOpacity>
 
         {/* BOUTON APPLE (Affiché uniquement sur iOS) */}
         {!isAndroid && (
