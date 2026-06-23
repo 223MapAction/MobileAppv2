@@ -35,11 +35,9 @@ export async function read_user(id, token = null) {
     if (response.ok) {
       return resultData;
     } else {
-      console.error("Erreur serveur read_user :", resultData);
       throw resultData;
     }
   } catch (error) {
-    console.error("Erreur réseau / API read_user :", error);
     throw error;
   }
 }
@@ -56,7 +54,6 @@ export async function update_user(id, { avatar, ...data }, token = null) {
     const parts = filename.split(".");
     const extension = parts.length > 1 ? parts[parts.length - 1].toLowerCase() : 'jpg';
     
-    // ICI : Remplacement définitif de generateMakeId par un ID unique basé sur le temps
     const uniqueId = Date.now() + Math.random().toString(36).substring(2, 11);
     
     formdata.append("avatar", {
@@ -86,19 +83,15 @@ export async function update_user(id, { avatar, ...data }, token = null) {
     const resultData = await response.json();
 
     if (response.ok) {
-      console.log("Mise à jour réussie :", resultData);
       return resultData;
     } else {
-      console.error("Erreur retournée par le serveur :", resultData);
       throw resultData;
     }
   } catch (error) {
-    console.error("Erreur réseau / API update_user :", error);
     throw error;
   }
 }
 
-// Exportation de toutes les fonctions
 export default {
   list_user,
   read_user,

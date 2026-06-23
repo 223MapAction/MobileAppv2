@@ -8,7 +8,7 @@ import { read_user, update_user } from '../../api/user';
 import { COLORS } from '../../Composants/themeConfig';
 import { clearAuthToken, clearAuthUser, getAuthToken, getAuthUser, setAuthUser } from '../../storage/authStorage';
 
-const { width, height } = Dimensions.get('window');
+const { height } = Dimensions.get('window');
 
 export default function ProfilScreen() {
   const { signOut } = useAuth();
@@ -16,14 +16,12 @@ export default function ProfilScreen() {
   const [isLoadingUser, setIsLoadingUser] = useState(true);
   const [isPersonalInfoOpen, setIsPersonalInfoOpen] = useState(false);
   
-  // --- ÉTATS POUR L'ÉDITION ---
   const [isEditing, setIsEditing] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   const [editForm, setEditForm] = useState({ first_name: '', last_name: '', phone: '', email: '' });
 
   const router = useRouter();
 
-  // Déclaration de la fonction de chargement/rafraîchissement utilisable partout
   const rafraichirProfilUtilisateur = async () => {
     try {
       const localUser = await getAuthUser();
@@ -57,7 +55,7 @@ export default function ProfilScreen() {
         });
       }
     } catch (error) {
-      console.error("Erreur rafraîchissement profil:", error);
+      // Échec silencieux du rafraîchissement automatique en arrière-plan
     }
   };
 
@@ -71,7 +69,6 @@ export default function ProfilScreen() {
     return () => { isMounted = false; };
   }, []);
 
-  // --- FONCTION POUR SELECTIONNER UNE NOUVELLE IMAGE (CORRIGÉE POUR EXPO) ---
   const pickImage = async () => {
     const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
     
@@ -81,7 +78,7 @@ export default function ProfilScreen() {
     }
 
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: 'images', // Correction ici : 'images' remplace MediaTypeOptions.Images pour éviter le warning
+      mediaTypes: 'images',
       allowsEditing: true,
       aspect: [1, 1],
       quality: 0.7,
@@ -92,36 +89,26 @@ export default function ProfilScreen() {
     }
   };
 
-  // --- SAUVEGARDE DE L'AVATAR CORRIGÉE ---
   const handleSaveAvatar = async (imageUri) => {
     setIsUpdating(true);
     try {
       const tokenData = await getAuthToken();
       const token = tokenData?.access || tokenData;
       
-      // On envoie l'objet simple, update_user va l'intercepter et créer le FormData autonome
       await update_user(user.id, { avatar: imageUri }, token);
-      
-      // Rafraîchissement des données de l'utilisateur
       await rafraichirProfilUtilisateur();
       
       Alert.alert("Succès", "Votre photo de profil a été mise à jour !");
     } catch (error) {
-      console.error("Erreur technique handleSaveAvatar:", error);
       Alert.alert("Erreur", "Impossible de mettre à jour la photo.");
     } finally {
       setIsUpdating(false);
     }
   };
 
-  // --- SAUVEGARDE DES INFORMATIONS TEXTUELLES + REFRESH ---
   const handleSaveProfileInfo = async () => {
-    if (!editForm.first_name.trim()) {
-      Alert.alert("Champ obligatoire", "Le prénom ne peut pas être vide.");
-      return;
-    }
-    if (!editForm.last_name.trim()) {
-      Alert.alert("Champ obligatoire", "Le nom ne peut pas être vide.");
+    if (!editForm.first_name.trim() || !editForm.last_name.trim()) {
+      Alert.alert("Champ obligatoire", "Le nom et le prénom ne peuvent pas être vides.");
       return;
     }
 
@@ -143,42 +130,38 @@ export default function ProfilScreen() {
     }
   };
 
-    const handleLogout = () => {
-  Alert.alert(
-    "Déconnexion",
-    "Êtes-vous sûr de vouloir vous déconnecter ?",
-    [
-      { text: "Annuler", style: "cancel" },
-      { 
-        text: "Se déconnecter", 
-        style: "destructive",
-        onPress: async () => {
-          try {
-            // 1. Déconnexion de Clerk en sécurité si une session Google est active
-            if (typeof signOut === 'function') {
-              await signOut().catch(() => null);
+  const handleLogout = () => {
+    Alert.alert(
+      "Déconnexion",
+      "Êtes-vous sûr de vouloir vous déconnecter ?",
+      [
+        { text: "Annuler", style: "cancel" },
+        { 
+          text: "Se déconnecter", 
+          style: "destructive",
+          onPress: async () => {
+            try {
+              if (typeof signOut === 'function') {
+                await signOut().catch(() => null);
+              }
+              await clearAuthUser().catch(() => null);
+              await clearAuthToken().catch(() => null);
+              
+              setUser(null);
+              router.replace('/Authentification'); 
+            } catch (error) {
+              Alert.alert("Erreur", "Impossible de procéder à la déconnexion.");
             }
-
-            // 2. Nettoyage complet du stockage local (OTP et jetons de secours)
-            await clearAuthUser().catch(() => null);
-            await clearAuthToken().catch(() => null);
-            
-            // 3. Réinitialisation de l'état UI et redirection
-            setUser(null);
-            router.replace('/Authentification'); 
-          } catch (error) {
-            console.error("Erreur lors de la déconnexion globale :", error);
-            Alert.alert("Erreur", "Impossible de procéder à la déconnexion pour le moment.");
           }
         }
-      }
-    ]
-  );
-};
+      ]
+    );
+  };
+
   const handleDeleteAccount = () => {
     Alert.alert(
       "Suppression du compte",
-      "Êtes-vous absolument sûr de vouloir supprimer votre compte ? Cette action est irréversible et effacera définitivement vos données.",
+      "Êtes-vous absolument sûr de vouloir supprimer votre compte ? Cette action est irréversible.",
       [
         { text: "Annuler", style: "cancel" },
         { 
@@ -186,14 +169,12 @@ export default function ProfilScreen() {
           style: "destructive",
           onPress: async () => {
             try {
-              // TODO: Ajoutez ici votre appel API (ex: await delete_user(user.id, token))
               await clearAuthUser().catch(() => null);
               await clearAuthToken().catch(() => null);
               setUser(null);
               router.replace('/Authentification');
-              Alert.alert("Compte supprimé", "Votre compte a été supprimé avec succès.");
+              Alert.alert("Compte supprimé", "Votre compte a été supprimé.");
             } catch (error) {
-              console.error("Erreur lors de la suppression du compte :", error);
               Alert.alert("Erreur", "Impossible de supprimer le compte pour le moment.");
             }
           }
@@ -233,50 +214,9 @@ export default function ProfilScreen() {
       <View style={styles.emptyContainer}>
         <Ionicons name="person-circle-outline" size={100} color={COLORS.gray1} />
         <Text style={styles.emptyTitle}>Vous n'êtes pas connecté</Text>
-        <Text style={styles.emptySubtitle}>Connectez-vous pour accéder à votre profil et suivre vos incidents.</Text>
-        <TouchableOpacity 
-          style={styles.loginButton} 
-          onPress={() => router.replace('/Authentification')}
-        >
+        <Text style={styles.emptySubtitle}>Connectez-vous pour accéder à votre profil.</Text>
+        <TouchableOpacity style={styles.loginButton} onPress={() => router.replace('/Authentification')}>
           <Text style={styles.loginButtonText}>Se connecter</Text>
-        </TouchableOpacity>
-       <TouchableOpacity 
-          style={styles.forceLogoutButton} 
-          onPress={() => {
-            Alert.alert(
-              "Déconnexion forcée",
-              "Cette action va déconnecter Clerk et vider le stockage local pour corriger les conflits d'état. Continuer ?",
-              [
-                { text: "Annuler", style: "cancel" },
-                { 
-                  text: "Forcer la déconnexion", 
-                  style: "destructive",
-                  onPress: async () => {
-                    try {
-                      // 1. Déconnexion de Clerk (Ferme la session isSignedIn)
-                      if (typeof signOut === 'function') {
-                        await signOut();
-                      }
-                      
-                      // 2. Nettoyage de ton stockage local
-                      await clearAuthUser().catch(() => null);
-                      await clearAuthToken().catch(() => null);
-                      setUser(null);
-                      
-                      Alert.alert("Succès", "Session Clerk et stockage réinitialisés.");
-                      router.replace('/Authentification');
-                    } catch (err) {
-                      console.error(err);
-                      Alert.alert("Erreur", "Impossible de forcer la déconnexion.");
-                    }
-                  }
-                }
-              ]
-            );
-          }}
-        >
-          <Ionicons name="log-out-outline" size={18} color="#E74C3C" style={{ marginRight: 6 }} />
-          <Text style={styles.forceLogoutText}>Forcer la déconnexion Clerk & Local</Text>
         </TouchableOpacity>
       </View>
     );
@@ -284,7 +224,6 @@ export default function ProfilScreen() {
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      {/* Header Profil */}
       <View style={styles.header}>
         <View style={styles.imageContainer}>
           {avatarUrl ? (
@@ -321,7 +260,6 @@ export default function ProfilScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Menu Options */}
       <View style={styles.menuContainer}>
         <Text style={styles.sectionTitle}>Compte</Text>
         <View style={styles.sectionCard}>
@@ -348,7 +286,6 @@ export default function ProfilScreen() {
 
       <View style={{ height: 40 }} />
 
-      {/* Modal Informations Personnelles */}
       <Modal visible={isPersonalInfoOpen} transparent animationType="slide">
         <View style={styles.modalBackdrop}>
           <View style={styles.modalCard}>
