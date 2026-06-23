@@ -1,7 +1,6 @@
 import { useAuth, useClerk, useOAuth, useUser } from "@clerk/clerk-expo";
 import { FontAwesome } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
-import * as Linking from 'expo-linking';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
@@ -49,13 +48,21 @@ const clerk = useClerk();
   const handleGoogleSignIn = async () => {
     setLoading(true);
     try {
-      
-      const redirectUrl = Linking.createURL('/(tabs)', { scheme: 'mapactionapp' });
+      // const redirectUrl = Linking.createURL('/(tabs)', { scheme: 'mapactionapp' });
       const result = await handleGoogleAuthWithClerk(startOAuthFlow, clerk);
       
       if (result && result.success) {
-        console.log("Connexion réussie !");
-        router.replace("/(tabs)");
+        console.log("✅ Connexion réussie ! Stabilisation du stockage...");
+        
+        // 🔥 LE FIX : On attend 150ms pour laisser le thread natif figer l'AsyncStorage
+        // Cela élimine l'effet de flash "Anonyme" au montage du HomeScreen
+        await new Promise(resolve => setTimeout(resolve, 150));
+        
+        console.log("🚀 Redirection et réinitialisation des onglets.");
+        navigation.reset({
+          index: 0,
+          routes: [{ name: '(tabs)' }],
+        });
       }
     } catch (error) {
       Alert.alert("Erreur", error.message);

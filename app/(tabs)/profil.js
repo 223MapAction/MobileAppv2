@@ -240,6 +240,44 @@ export default function ProfilScreen() {
         >
           <Text style={styles.loginButtonText}>Se connecter</Text>
         </TouchableOpacity>
+       <TouchableOpacity 
+          style={styles.forceLogoutButton} 
+          onPress={() => {
+            Alert.alert(
+              "Déconnexion forcée",
+              "Cette action va déconnecter Clerk et vider le stockage local pour corriger les conflits d'état. Continuer ?",
+              [
+                { text: "Annuler", style: "cancel" },
+                { 
+                  text: "Forcer la déconnexion", 
+                  style: "destructive",
+                  onPress: async () => {
+                    try {
+                      // 1. Déconnexion de Clerk (Ferme la session isSignedIn)
+                      if (typeof signOut === 'function') {
+                        await signOut();
+                      }
+                      
+                      // 2. Nettoyage de ton stockage local
+                      await clearAuthUser().catch(() => null);
+                      await clearAuthToken().catch(() => null);
+                      setUser(null);
+                      
+                      Alert.alert("Succès", "Session Clerk et stockage réinitialisés.");
+                      router.replace('/Authentification');
+                    } catch (err) {
+                      console.error(err);
+                      Alert.alert("Erreur", "Impossible de forcer la déconnexion.");
+                    }
+                  }
+                }
+              ]
+            );
+          }}
+        >
+          <Ionicons name="log-out-outline" size={18} color="#E74C3C" style={{ marginRight: 6 }} />
+          <Text style={styles.forceLogoutText}>Forcer la déconnexion Clerk & Local</Text>
+        </TouchableOpacity>
       </View>
     );
   }

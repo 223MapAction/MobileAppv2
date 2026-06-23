@@ -7,7 +7,7 @@ import { Audio } from 'expo-av';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
-import * as VideoThumbnails from 'expo-video-thumbnails'; // <-- Nouvel import
+import * as VideoThumbnails from 'expo-video-thumbnails';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator, Alert, Dimensions, Image, ScrollView,
@@ -25,7 +25,7 @@ export default function SignalerIncidentScreen() {
   const route = useRoute();
   const { photoUri: initialPhoto } = route.params || {};
 
-  // ÉTATS GENERAUX
+  // ÉTATS GÉNÉRAUX
   const [description, setDescription] = useState('');
   const [location, setLocation] = useState(null);
   const [loadingLocation, setLoadingLocation] = useState(true);
@@ -34,10 +34,10 @@ export default function SignalerIncidentScreen() {
   const [sending, setSending] = useState(false);
   const [user, setUser] = useState(null);
 
-  // ÉTATS MULTIMEDIA
+  // ÉTATS MULTIMÉDIA
   const [photoUri, setPhotoUri] = useState(initialPhoto);
   const [videoUri, setVideoUri] = useState(null);
-  const [videoThumbnail, setVideoThumbnail] = useState(null); // <-- Vignette vidéo
+  const [videoThumbnail, setVideoThumbnail] = useState(null);
   const [audioUri, setAudioUri] = useState(null);
   const [recording, setRecording] = useState(null);
   const [audioLevels, setAudioLevels] = useState([1, 1, 1, 1, 1]); 
@@ -45,8 +45,12 @@ export default function SignalerIncidentScreen() {
   // Charger les infos de l'utilisateur connecté
   useEffect(() => {
     const loadUser = async () => {
-      const userData = await getAuthUser();
-      setUser(userData);
+      try {
+        const userData = await getAuthUser();
+        setUser(userData);
+      } catch (e) {
+        setUser(null);
+      }
     };
     loadUser();
   }, []);
@@ -87,18 +91,22 @@ export default function SignalerIncidentScreen() {
       });
       
       setLocation({ coords: currentLocation.coords, address: address[0] });
-   // ---- APPEL DYNAMIQUE MAPBOX ----
-      console.log("-> Début de la récupération de la zone via Mapbox API...");
-      const zoneRecuperee = await getZoneFromOSM(
-        currentLocation.coords.latitude,
-        currentLocation.coords.longitude
-      );
-      
-      console.log("-> Zone déterminée :", zoneRecuperee);
-      setZoneName(zoneRecuperee); // Mise à jour de l'état avec la valeur Mapbox
+
+      // Récupération sécurisée de la zone administrative
+      try {
+        const zoneRecuperee = await getZoneFromOSM(
+          currentLocation.coords.latitude,
+          currentLocation.coords.longitude
+        );
+        if (zoneRecuperee) {
+          setZoneName(zoneRecuperee);
+        }
+      } catch (apiError) {
+        // Fallback discret sur la ville détectée par reverse geocode si Mapbox échoue
+        if (address[0]?.city) setZoneName(address[0].city);
+      }
 
     } catch (error) {
-      console.error("Erreur localisation ou Mapbox :", error);
       setLocationError(true);
     } finally {
       setLoadingLocation(false);
@@ -117,26 +125,29 @@ export default function SignalerIncidentScreen() {
       return;
     }
 
-    let result = await ImagePicker.launchCameraAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Videos,
-      allowsEditing: true,
-      aspect: [16, 9],
-      quality: 0.7,
-    });
+    try {
+      let result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Videos,
+        allowsEditing: true,
+        aspect: [16, 9],
+        quality: 0.7,
+      });
 
-    if (!result.canceled) {
-      const sourceUri = result.assets[0].uri;
-      setVideoUri(sourceUri);
+      if (!result.canceled) {
+        const sourceUri = result.assets[0].uri;
+        setVideoUri(sourceUri);
 
-      // Génération de la bannière visuelle à partir de la première seconde du fichier
-      try {
-        const { uri } = await VideoThumbnails.getThumbnailAsync(sourceUri, {
-          time: 1000,
-        });
-        setVideoThumbnail(uri);
-      } catch (e) {
-        console.warn("Erreur génération vignette vidéo:", e);
+        try {
+          const { uri } = await VideoThumbnails.getThumbnailAsync(sourceUri, {
+            time: 1000,
+          });
+          setVideoThumbnail(uri);
+        } catch (e) {
+          setVideoThumbnail(null);
+        }
       }
+    } catch (err) {
+      Alert.alert("Erreur", "Impossible d'enregistrer la vidéo.");
     }
   };
 
@@ -159,7 +170,7 @@ export default function SignalerIncidentScreen() {
           },
         };
 
-        const { recording } = await Audio.Recording.createAsync(
+        const { recording: newRecording } = await Audio.Recording.createAsync(
           recordingOptions,
           (status) => {
             if (status.metering !== undefined) {
@@ -174,95 +185,89 @@ export default function SignalerIncidentScreen() {
           100
         );
         
-        setRecording(recording);
+        setRecording(newRecording);
       }
     } catch (err) {
-      Alert.alert('Erreur', 'Impossible de démarrer l\'enregistrement');
+      Alert.alert('Erreur', "Impossible de démarrer l'enregistrement audio.");
     }
   }
 
   // Audio : Arrêter l'enregistrement
   async function stopRecording() {
+    if (!recording) return;
     try {
+      const targetRecording = recording;
       setRecording(null);
-      await recording.stopAndUnloadAsync();
-      const uri = recording.getURI();
+      await targetRecording.stopAndUnloadAsync();
+      const uri = targetRecording.getURI();
       setAudioUri(uri);
       setAudioLevels([1, 1, 1, 1, 1]);
     } catch (error) {
-      // Gestion erreur silencieuse
+      setRecording(null);
     }
   }
 
-  // Soumission de l'incident (Gère le online et le offline storage)
- const handleSendIncident = async () => {
-  if (!location) {
-    Alert.alert("Erreur", "Impossible d'envoyer l'incident sans position GPS.");
-    return;
-  }
+  // Soumission de l'incident (Gestion Online & Offline)
+  const handleSendIncident = async () => {
+    if (!location) {
+      Alert.alert("Erreur", "Impossible d'envoyer l'incident sans position GPS.");
+      return;
+    }
 
-  const network = await NetInfo.fetch();
-  setSending(true);
+    setSending(true);
 
-  const incidentData = {
-    user_id: user?.id || null, 
-    title: description ? description.substring(0, 25) + "..." : "Incident anonyme",
-    description: description || "",
-    lattitude: location.coords.latitude.toString(),
-    longitude: location.coords.longitude.toString(),
-    zone: zoneName,
-    photo: photoUri || "", 
-    audio: audioUri || "", 
-    video: videoUri || "", 
-    etat: "declared",
-  };
+    const incidentData = {
+      user_id: user?.id || null, 
+      title: description ? (description.substring(0, 25) + "...") : "Incident anonyme",
+      description: description || "",
+      lattitude: location.coords.latitude.toString(),
+      longitude: location.coords.longitude.toString(),
+      zone: zoneName,
+      photo: photoUri || "", 
+      audio: audioUri || "", 
+      video: videoUri || "", 
+      etat: "declared",
+    };
 
-  try {
-    if (network.isConnected) {
-      // ---- CAS 1 : EN LIGNE ----
-      const result = await envoyerIncident(incidentData);
+    try {
+      const network = await NetInfo.fetch();
       
-      if (result.ok) {
-        // SI L'UTILISATEUR EST ANONYME (Pas connecté)
-        if (!user) {
-          // On enregistre directement la réponse officielle du serveur dans son historique permanent
-          // result.data contient déjà l'ID unique généré par la base de données et le created_at réel
-          await OfflineManager.saveToAnonymousHistory(result.data);
-        }
+      if (network.isConnected) {
+        const result = await envoyerIncident(incidentData);
         
-        Alert.alert("Succès", user ? "Incident envoyé avec succès !" : "Incident anonyme envoyé avec succès !");
-        router.replace('/(tabs)');
+        if (result && result.ok) {
+          if (!user) {
+            await OfflineManager.saveToAnonymousHistory(result.data);
+          }
+          Alert.alert("Succès", user ? "Incident envoyé avec succès !" : "Incident anonyme envoyé avec succès !");
+          router.replace('/(tabs)');
+        } else {
+          throw new Error("Erreur serveur");
+        }
       } else {
-        throw new Error("Erreur serveur");
+        const saved = await OfflineManager.saveForLater(incidentData);
+        if (saved) {
+          Alert.alert(
+            "Mode Hors-ligne", 
+            "Pas de connexion. L'incident a été enregistré localement et sera envoyé dès que vous aurez internet.",
+            [{ text: "OK", onPress: () => router.replace('/(tabs)') }]
+          );
+        }
       }
-    } else {
-      // ---- CAS 2 : HORS LIGNE (Pas d'internet) ----
-      const saved = await OfflineManager.saveForLater(incidentData);
-      if (saved) {
+    } catch (error) {
+      const savedFallback = await OfflineManager.saveForLater(incidentData);
+      if (savedFallback) {
         Alert.alert(
-          "Mode Hors-ligne", 
-          "Pas de connexion. L'incident a été enregistré localement et sera envoyé dès que vous aurez internet.",
+          "Incident sauvegardé", 
+          "Une erreur réseau est survenue, mais votre incident a été mis en sécurité localement.",
           [{ text: "OK", onPress: () => router.replace('/(tabs)') }]
         );
       }
+    } finally {
+      setSending(false);
     }
-  } catch (error) {
-    // ---- CAS 3 : ERREUR RÉSEAU / TIMEOUT ----
-    console.error("Erreur durant l'envoi :", error);
-    const savedFallback = await OfflineManager.saveForLater(incidentData);
-    if (savedFallback) {
-      Alert.alert(
-        "Incident sauvegardé", 
-        "Une erreur réseau est survenue, mais votre incident a été mis en sécurité localement.",
-        [{ text: "OK", onPress: () => router.replace('/(tabs)') }]
-      );
-    }
-  } finally {
-    setSending(false);
-  }
-};
+  };
 
-  // Écran d'erreur si la géolocalisation fait défaut
   if (!loadingLocation && locationError) {
     return (
       <View style={styles.containerBlocked}>
@@ -312,7 +317,6 @@ export default function SignalerIncidentScreen() {
             style={[styles.card, videoUri && styles.cardActive]} 
             onPress={handlePickVideo}
           >
-            {/* Affichage dynamique : Vignette vidéo ou icône par défaut */}
             {videoThumbnail ? (
               <Image source={{ uri: videoThumbnail }} style={styles.cardImage} />
             ) : (
@@ -372,7 +376,7 @@ export default function SignalerIncidentScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* MODULE DE RECOGNITION DE POSITION INTERNE */}
+        {/* MODULE DE GÉOLOCALISATION */}
         <View style={styles.locationGroup}>
           <Text style={styles.label}>Position de l'incident</Text>
           <View style={styles.locationContainer}>
@@ -439,7 +443,6 @@ const styles = StyleSheet.create({
   submitBtn: { backgroundColor: COLORS.primary, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingVertical: 16, borderRadius: 12 },
   submitBtnText: { color: 'white', fontSize: 17, fontWeight: 'bold' },
   
-  // Interface bloquée (Absence GPS)
   containerBlocked: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 30, backgroundColor: '#fcfcfc' },
   blockedTitle: { fontSize: 22, fontWeight: 'bold', marginTop: 20, color: '#2c3e50' },
   blockedText: { fontSize: 15, color: '#7f8c8d', textAlign: 'center', marginTop: 10, marginBottom: 30, lineHeight: 22 },
@@ -448,7 +451,6 @@ const styles = StyleSheet.create({
   cancelBtn: { width: '100%', paddingVertical: 15, alignItems: 'center' },
   cancelBtnText: { color: '#7f8c8d', fontSize: 16, fontWeight: '600' },
   
-  // Onde d'enregistrement audio
   waveContainer: { flexDirection: 'row', alignItems: 'center', height: 40, marginTop: 5 },
   waveBar: { width: 3, backgroundColor: '#e74c3c', marginHorizontal: 2, borderRadius: 2 },
 });
