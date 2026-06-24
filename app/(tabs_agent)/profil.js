@@ -285,7 +285,7 @@ export default function ProfilAgentScreen() {
             <MenuItem 
               icon="information-circle-outline" 
               title="À propos de nous" 
-              onPress={() => console.log('Navigation vers À Propos')} 
+              onPress={() => router.push('/AproposScreen')}
             />
           </View>
         </View>

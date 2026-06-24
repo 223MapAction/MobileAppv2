@@ -243,8 +243,8 @@ export default function DetailIncidentAgentScreen() {
           }}
           activeOpacity={0.8}
         >
-          <MaterialCommunityIcons name="clipboard-text-plus-outline" size={22} color={COLORS.primary} />
-          <Text style={styles.reportButtonText}>Faire un report</Text>
+          {/* <MaterialCommunityIcons name="clipboard-text-plus-outline" size={22} color={COLORS.primary} /> */}
+          <Text style={styles.reportButtonText}>Faire un rapport</Text>
         </TouchableOpacity>
       </View>
     </View>

@@ -267,12 +267,12 @@ export default function ProfilScreen() {
             setIsEditing(false);
             setIsPersonalInfoOpen(true);
           }} />
-          <MenuItem icon="information-circle-outline" title="À propos de nous" />
+          <MenuItem icon="information-circle-outline" title="À propos de nous" onPress={() => router.push('/AproposScreen')}/>
         </View>
 
         <Text style={styles.sectionTitle}>Assistance</Text>
         <View style={styles.sectionCard}>
-          <MenuItem icon="help-circle-outline" title="FAQ" />
+          <MenuItem icon="help-circle-outline" title="FAQ" onPress={() => router.push('/FAQScreen')}/>
           <MenuItem icon="document-text-outline" title="Conditions et termes" />
           <MenuItem icon="mail-outline" title="Contactez-nous" />
         </View>
