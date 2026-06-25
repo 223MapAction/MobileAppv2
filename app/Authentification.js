@@ -16,7 +16,7 @@ import {
   View
 } from 'react-native';
 import CountryPicker from 'react-native-country-picker-modal';
-import { requestOtp } from '../api/Auth'; // Import de ton service API
+import { requestOtp } from '../api/Auth';
 import { handleGoogleAuthWithClerk } from "../api/socialAuth";
 import { COLORS } from '../Composants/themeConfig';
 
@@ -29,64 +29,67 @@ export default function LoginScreen() {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // Détection automatique de la plateforme
   const isAndroid = Platform.OS === 'android';
 
   const { isSignedIn, isLoaded } = useAuth();
   const { user: clerkUser } = useUser();
   const { startOAuthFlow } = useOAuth({ strategy: "oauth_google" });
 
-useEffect(() => {
+  useEffect(() => {
     if (isLoaded && isSignedIn && !loading) {
-      console.log("Utilisateur détecté comme connecté, redirection vers les onglets...");
-
+      console.log("Utilisateur connecté Clerk détecté.");
     }
   }, [isSignedIn, isLoaded]);
 
-const clerk = useClerk();
+  const clerk = useClerk();
 
   const handleGoogleSignIn = async () => {
     setLoading(true);
     try {
-      // const redirectUrl = Linking.createURL('/(tabs)', { scheme: 'mapactionapp' });
+      // Exécution de l'auth et de la récupération des données Django
       const result = await handleGoogleAuthWithClerk(startOAuthFlow, clerk);
       
       if (result && result.success) {
-        console.log("✅ Connexion réussie ! Stabilisation du stockage...");
+        console.log("✅ Django Auth OK ! Synchronisation finale...");
         
-        // 🔥 LE FIX : On attend 150ms pour laisser le thread natif figer l'AsyncStorage
-        // Cela élimine l'effet de flash "Anonyme" au montage du HomeScreen
-        await new Promise(resolve => setTimeout(resolve, 150));
+        // On laisse une courte pause de sécurité pour s'assurer que le thread d'écriture a fini
+        await new Promise(resolve => setTimeout(resolve, 200));
         
-        console.log("🚀 Redirection et réinitialisation des onglets.");
-        navigation.reset({
-          index: 0,
-          routes: [{ name: '(tabs)' }],
+        console.log("🚀 Redirection vers les onglets avec session active.");
+        
+        // CORRECTION : Remplacement de navigation.reset par router.replace d'expo-router 
+        // avec le paramètre de rafraîchissement natif propre pour forcer les requêtes initiales de tes composants
+        router.replace({
+          pathname: "/(tabs)",
+          params: { refresh: "true" }
         });
       }
     } catch (error) {
-      Alert.alert("Erreur", error.message);
+      Alert.alert("Erreur d'authentification", error.message || "Impossible de se connecter avec Google.");
     } finally {
       setLoading(false);
     }
   };
+
   if (!isLoaded) {
     return null; 
   }
 
-  // MESSAGE INDISPONIBILITÉ APPLE
   const handleAppleSignIn = () => {
-    console.log("-> Tentative de connexion Apple interceptée (Indisponible).");
     Alert.alert(
       "Fonctionnalité indisponible", 
       "La connexion via Apple n'est pas disponible pour le moment. Veuillez utiliser la connexion par numéro de téléphone."
     );
   };
 
-  // Connexion classique par OTP
   const handleAuth = async () => {
-    if (!phoneNumber || phoneNumber.length < 4) {
-      Alert.alert("Numéro invalide", "Veuillez saisir un numéro de téléphone correct.");
+    const cleanedNumber = phoneNumber.trim();
+    const isValidMaliNumber = /^\d{8}$/.test(cleanedNumber);
+    if (!isValidMaliNumber) {
+      Alert.alert(
+        "Numéro invalide", 
+        "Le numéro de téléphone doit comporter exactement 8 chiffres (ex: 76XXXXXX)."
+      );
       return;
     }
 
@@ -110,7 +113,6 @@ const clerk = useClerk();
 
   return (
     <SafeAreaView style={styles.container}>
-
       <TouchableOpacity 
         style={styles.agentButton} 
         onPress={() => router.push('/AuthAgentTerrain')}
@@ -119,8 +121,6 @@ const clerk = useClerk();
       </TouchableOpacity>
 
       <View style={styles.content}>
-        
-        {/* LOGO */}
         <View style={styles.logoContainer}>
           <Image 
             source={require('../assets/LogoMapAction.png')} 
@@ -129,7 +129,6 @@ const clerk = useClerk();
           />
         </View>
 
-        {/* TITRE & DESCRIPTION */}
         <View style={styles.textSection}>
           <Text style={styles.title}>Authentifiez-vous</Text>
           <Text style={styles.description}>
@@ -137,7 +136,6 @@ const clerk = useClerk();
           </Text>
         </View>
 
-        {/* INPUT TÉLÉPHONE AVEC DRAPEAU */}
         <View style={styles.phoneInputContainer}>
           <View style={styles.countryPickerSelector}>
             <CountryPicker
@@ -159,7 +157,6 @@ const clerk = useClerk();
           />
         </View>
 
-        {/* BOUTON S'AUTHENTIFIER */}
         <TouchableOpacity 
           style={[styles.mainButton, loading && { opacity: 0.8 }]} 
           onPress={handleAuth}
@@ -178,19 +175,17 @@ const clerk = useClerk();
           <View style={styles.line} />
         </View>
 
-        {/* BOUTON GOOGLE */}
-       <TouchableOpacity 
-      style={styles.socialButton} 
-      onPress={handleGoogleSignIn}
-      disabled={loading}
-    >
-      <FontAwesome name="google" size={20} color="#DB4437" />
-      <Text style={styles.socialButtonText}>
-        {loading ? "Chargement..." : "Continuer avec Google"}
-      </Text>
-    </TouchableOpacity>
+        <TouchableOpacity 
+          style={styles.socialButton} 
+          onPress={handleGoogleSignIn}
+          disabled={loading}
+        >
+          <FontAwesome name="google" size={20} color="#DB4437" />
+          <Text style={styles.socialButtonText}>
+            {loading ? "Chargement..." : "Continuer avec Google"}
+          </Text>
+        </TouchableOpacity>
 
-        {/* BOUTON APPLE (Affiché uniquement sur iOS) */}
         {!isAndroid && (
           <TouchableOpacity 
             style={styles.socialButton}
@@ -208,7 +203,6 @@ const clerk = useClerk();
         >
           <Text style={styles.guestButtonText}>Continuer sans compte</Text>
         </TouchableOpacity>
-
       </View>
     </SafeAreaView>
   );

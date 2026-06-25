@@ -22,18 +22,7 @@ export default function RootLayout() {
 
   useEffect(() => {
     const handleDeepLink = (event) => {
-      console.log("🔗 Deep Link capturé par l'application :", event.url);
-      
-      if (event.url.includes("oauth-native-callback") || event.url.includes("session_id")) {
-        console.log("🚀 Retour OAuth détecté, redirection vers l'accueil avec drapeau refresh.");
-        
-        setTimeout(() => {
-          router.replace({
-            pathname: "/(tabs)",
-            params: { refresh: "true" }
-          });
-        }, 100);
-      }
+    
     };
 
     const subscription = Linking.addEventListener("url", handleDeepLink);
