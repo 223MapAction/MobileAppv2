@@ -92,8 +92,38 @@ export async function update_user(id, { avatar, ...data }, token = null) {
   }
 }
 
+/**
+ * Supprime définitivement un compte utilisateur
+ */
+export async function delete_user(id, token = null) {
+  const headers = {};
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+
+  try {
+    const response = await fetch(`${apiEndPoint}/user/${id}/`, {
+      method: 'DELETE',
+      headers: headers,
+    });
+
+    // Si le serveur renvoie du contenu (ex: message de confirmation), on le parse
+    // Sinon, on gère le statut de succès standard (ex: 204 No Content)
+    if (response.ok) {
+      const isJson = response.headers.get('content-type')?.includes('application/json');
+      return isJson ? await response.json() : { success: true };
+    } else {
+      const errorData = await response.json().catch(() => ({ detail: "Erreur de suppression" }));
+      throw errorData;
+    }
+  } catch (error) {
+    throw error;
+  }
+}
+
 export default {
   list_user,
   read_user,
   update_user,
+  delete_user,
 };

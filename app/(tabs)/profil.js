@@ -4,7 +4,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Dimensions, Image, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { read_user, update_user } from '../../api/user';
+import { delete_user, read_user, update_user } from '../../api/user';
 import { COLORS } from '../../Composants/themeConfig';
 import { clearAuthToken, clearAuthUser, getAuthToken, getAuthUser, setAuthUser } from '../../storage/authStorage';
 
@@ -161,7 +161,7 @@ export default function ProfilScreen() {
   const handleDeleteAccount = () => {
     Alert.alert(
       "Suppression du compte",
-      "Êtes-vous absolument sûr de vouloir supprimer votre compte ? Cette action est irréversible.",
+      "Êtes-vous absolument sûr de vouloir supprimer votre compte ? Cette action est irréversible et effacera définitivement vos données.",
       [
         { text: "Annuler", style: "cancel" },
         { 
@@ -169,11 +169,22 @@ export default function ProfilScreen() {
           style: "destructive",
           onPress: async () => {
             try {
+              if (typeof signOut === 'function') {
+                await signOut().catch(() => null);
+              }
+              const tokenData = await getAuthToken();
+              const token = tokenData?.access || tokenData;
+
+              // Appel API pour supprimer le compte côté backend
+              await delete_user(user.id, token);
+
+              // Nettoyage complet du stockage local et déconnexion
               await clearAuthUser().catch(() => null);
               await clearAuthToken().catch(() => null);
               setUser(null);
               router.replace('/Authentification');
-              Alert.alert("Compte supprimé", "Votre compte a été supprimé.");
+              
+              Alert.alert("Compte supprimé", "Votre compte a été supprimé avec succès.");
             } catch (error) {
               Alert.alert("Erreur", "Impossible de supprimer le compte pour le moment.");
             }

@@ -306,13 +306,13 @@ export default function ProfilAgentScreen() {
         <View style={styles.sectionContainer}>
           <Text style={styles.sectionTitle}>Connexion et sécurité</Text>
           <View style={styles.cardGroup}>
-            <MenuItem 
+            {/* <MenuItem 
               icon="log-out-outline" 
               title="Supprimer mon compte" 
               onPress={handleDeleteAccount} 
             />
             <View style={styles.divider} />
-            {/* BOUTON SUPPRIMER MON COMPTE EN ROUGE ACTIVÉ */}
+            BOUTON SUPPRIMER MON COMPTE EN ROUGE ACTIVÉ */}
             <MenuItem 
               icon="trash-outline" 
               title="Déconnexion" 
