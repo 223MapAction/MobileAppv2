@@ -221,15 +221,57 @@ export default function ProfilScreen() {
   }
 
   if (!user) {
-    return (
-      <View style={styles.emptyContainer}>
-        <Ionicons name="person-circle-outline" size={100} color={COLORS.gray1} />
-        <Text style={styles.emptyTitle}>Vous n'êtes pas connecté</Text>
-        <Text style={styles.emptySubtitle}>Connectez-vous pour accéder à votre profil.</Text>
-        <TouchableOpacity style={styles.loginButton} onPress={() => router.replace('/Authentification')}>
-          <Text style={styles.loginButtonText}>Se connecter</Text>
-        </TouchableOpacity>
-      </View>
+   return (
+      <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+        {/* 1. Zone d'invitation à la connexion */}
+        <View style={styles.unauthCardContainer}>
+          <View style={styles.unauthCard}>
+            <View style={styles.unauthIconWrapper}>
+              <Ionicons name="person-circle" size={80} color={COLORS.primary} />
+            </View>
+            <Text style={styles.unauthTitle}>Rejoignez-nous</Text>
+            <Text style={styles.unauthSubtitle}>
+              Connectez-vous à votre compte citoyen pour suivre vos démarches et accéder à votre profil complet.
+            </Text>
+            
+            <TouchableOpacity 
+              style={styles.unauthLoginBtn} 
+              activeOpacity={0.8}
+              onPress={() => router.replace('/Authentification')}
+            >
+              <Ionicons name="log-in-outline" size={20} color="white" style={{ marginRight: 8 }} />
+              <Text style={styles.unauthLoginBtnText}>Se connecter / S'inscrire</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* 2. Section d'Assistance accessible sans compte */}
+        <View style={[styles.menuContainer, { marginTop: 10 }]}>
+          <Text style={styles.sectionTitle}>Besoin d'aide ?</Text>
+          <View style={styles.sectionCard}>
+            <MenuItem 
+              icon="help-circle-outline" 
+              title="Foire Aux Questions (FAQ)" 
+              onPress={() => router.push('/FAQScreen')}
+            />
+            <MenuItem 
+              icon="document-text-outline" 
+              title="Conditions Générales d'Utilisation" 
+              onPress={() => router.push('/CUG')} 
+            />
+            <MenuItem 
+              icon="mail-outline" 
+              title="Contacter le support client" 
+              onPress={() => router.push('/ContactUsScreen')} 
+            />
+          </View>
+          
+          <Text style={styles.unauthFooterText}>
+            Version de l'application 1.0.0
+          </Text>
+        </View>
+        <View style={{ height: 40 }} />
+      </ScrollView>
     );
   }
 
@@ -284,8 +326,8 @@ export default function ProfilScreen() {
         <Text style={styles.sectionTitle}>Assistance</Text>
         <View style={styles.sectionCard}>
           <MenuItem icon="help-circle-outline" title="FAQ" onPress={() => router.push('/FAQScreen')}/>
-          <MenuItem icon="document-text-outline" title="Conditions et termes" />
-          <MenuItem icon="mail-outline" title="Contactez-nous" />
+          <MenuItem icon="document-text-outline" title="Conditions et termes" onPress={() =>  router.push('/CUG')} />
+          <MenuItem icon="mail-outline" title="Contactez-nous" onPress={() =>  router.push('/ContactUsScreen')} />
         </View>
 
         <Text style={styles.sectionTitle}>Connexion</Text>
@@ -419,11 +461,75 @@ const styles = StyleSheet.create({
   menuItem: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16 },
   menuLeft: { flexDirection: 'row', alignItems: 'center' },
   menuText: { fontSize: 16, marginLeft: 12, fontWeight: '500' },
-  emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 30 },
-  emptyTitle: { fontSize: 22, fontWeight: 'bold', color: COLORS.secondary, marginTop: 20 },
-  emptySubtitle: { fontSize: 14, color: COLORS.gray1, textAlign: 'center', marginTop: 10, marginBottom: 30 },
-  loginButton: { backgroundColor: COLORS.primary, paddingHorizontal: 40, paddingVertical: 15, borderRadius: 30 },
-  loginButtonText: { color: 'white', fontWeight: 'bold', fontSize: 16 },
+
+  unauthCardContainer: {
+    paddingHorizontal: 20,
+    paddingTop: height * 0.05,
+    paddingBottom: 20,
+  },
+  unauthCard: {
+    backgroundColor: 'white',
+    borderRadius: 24,
+    padding: 25,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#F0F0F0',
+    // Ombres élégantes
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+  },
+  unauthIconWrapper: {
+    backgroundColor: COLORS.primary + '10', // Teinte très claire de ta couleur principale
+    padding: 10,
+    borderRadius: 50,
+    marginBottom: 15,
+  },
+  unauthTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: COLORS.secondary,
+    marginBottom: 8,
+  },
+  unauthSubtitle: {
+    fontSize: 14,
+    color: COLORS.gray1,
+    textAlign: 'center',
+    lineHeight: 20,
+    paddingHorizontal: 10,
+    marginBottom: 25,
+  },
+  unauthLoginBtn: {
+    flexDirection: 'row',
+    backgroundColor: COLORS.primary,
+    paddingVertical: 14,
+    paddingHorizontal: 25,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+    // Ombre sous le bouton d'action principal
+    elevation: 2,
+    shadowColor: COLORS.primary,
+    shadowOpacity: 0.2,
+    shadowRadius: 5,
+    shadowOffset: { width: 0, height: 3 },
+  },
+  unauthLoginBtnText: {
+    color: 'white',
+    fontWeight: '600',
+    fontSize: 16,
+  },
+  unauthFooterText: {
+    fontSize: 11,
+    textAlign: 'center',
+    color: COLORS.gray1,
+    marginTop: 15,
+    opacity: 0.6,
+  },
+
   modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
   modalCard: { backgroundColor: 'white', padding: 25, borderTopLeftRadius: 25, borderTopRightRadius: 25 },
   modalHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20 },

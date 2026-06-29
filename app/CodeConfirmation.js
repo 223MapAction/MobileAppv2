@@ -74,6 +74,16 @@ export default function OtpConfirmationScreen() {
 
       const { refresh, access, user } = result.data;
 
+      if (user && user.user_type !== 'citizen') {
+        console.log(`Accès refusé : type de compte détecté -> ${user.user_type}`);
+        
+        Alert.alert(
+          "Accès restreint", 
+          "Cette application est réservée aux citoyens. Si vous êtes un agent de terrain, veuillez retourner à l'accueil et vous connecter depuis l'Espace Agent."
+        );
+        return; // On stoppe tout ici : les tokens et le profil ne sont pas enregistrés en local
+      }
+
       await setAuthToken({ refresh, access });
       await setAuthUser(user);
 

@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Dimensions, Image, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { read_user, update_user } from '../../api/user';
 import { COLORS } from '../../Composants/themeConfig';
-import { clearAuthUser, getAuthToken, getAuthUser, saveAuthUser } from '../../storage/authStorageAgent'; // Ciblage de l'authentification Agent
+import { clearAuthUser, getAuthToken, getAuthUser, saveAuthUser } from '../../storage/authStorageAgent';
 
 const { width, height } = Dimensions.get('window');
 
@@ -61,6 +61,8 @@ export default function ProfilAgentScreen() {
           phone: localAgent.phone || '',
           email: localAgent.email || '',
         });
+      } else {
+        setUser(null);
       }
     } catch (error) {
       console.error("Erreur lors du rafraîchissement du profil agent :", error);
@@ -103,7 +105,7 @@ export default function ProfilAgentScreen() {
     }
   };
 
-  // --- MISE À JOUR DE L'AVATAR SUR LE SERVEUR ---
+  // --- MISE À JOUR DE L'AVATAR ---
   const handleSaveAvatar = async (imageUri) => {
     setIsUpdating(true);
     try {
@@ -180,7 +182,6 @@ export default function ProfilAgentScreen() {
     );
   };
 
-  // --- SUPPRESSION DU COMPTE ---
   const handleDeleteAccount = () => {
     Alert.alert(
       "Suppression du compte",
@@ -192,7 +193,6 @@ export default function ProfilAgentScreen() {
           style: "destructive",
           onPress: async () => {
             try {
-              // TODO: Ajoutez ici votre appel API (ex: await delete_user(agentId, token)) si nécessaire.
               await clearAuthUser().catch(() => null);
               setUser(null);
               router.replace('/Authentification');
@@ -223,6 +223,7 @@ export default function ProfilAgentScreen() {
     </TouchableOpacity>
   );
 
+  // ÉCRAN 1 : ÉTAT DE CHARGEMENT
   if (isLoadingUser) {
     return (
       <View style={[styles.container, styles.centered]}>
@@ -231,10 +232,11 @@ export default function ProfilAgentScreen() {
     );
   }
 
+  // ÉCRAN 2 : PAS DE SESSIONS RETROUVÉE (L'utilisateur n'est pas connecté)
   if (!user) {
     return (
       <View style={styles.emptyContainer}>
-        <Ionicons name="person-circle-outline" size={100} color={COLORS.gray1} />
+        <Ionicons name="person-circle-outline" size={100} color={styles.emptyIconColor || "#9CA3AF"} />
         <Text style={styles.emptyTitle}>Session introuvable</Text>
         <Text style={styles.emptySubtitle}>Veuillez vous reconnecter pour accéder à l'espace agent.</Text>
         <TouchableOpacity style={styles.loginButton} onPress={() => router.replace('/Authentification')}>
@@ -244,6 +246,7 @@ export default function ProfilAgentScreen() {
     );
   }
 
+  // ÉCRAN 3 : INTERFACE PRINCIPALE (L'agent est connecté, on affiche tout)
   return (
     <View style={styles.container}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
@@ -302,34 +305,28 @@ export default function ProfilAgentScreen() {
           </View>
         </View>
 
-        {/* SECTION : CONNEXION ET SECURITE */}
+        {/* SECTION : CONNEXION ET SÉCURITÉ */}
         <View style={styles.sectionContainer}>
           <Text style={styles.sectionTitle}>Connexion et sécurité</Text>
           <View style={styles.cardGroup}>
-            {/* <MenuItem 
+            <MenuItem 
               icon="log-out-outline" 
-              title="Supprimer mon compte" 
-              onPress={handleDeleteAccount} 
+              title="Déconnexion" 
+              onPress={handleLogout}
             />
             <View style={styles.divider} />
-            BOUTON SUPPRIMER MON COMPTE EN ROUGE ACTIVÉ */}
             <MenuItem 
               icon="trash-outline" 
-              title="Déconnexion" 
+              title="Supprimer mon compte" 
               color="#FF4444" 
-              onPress={handleLogout}
+              onPress={handleDeleteAccount} 
             />
           </View>
         </View>
 
       </ScrollView>
 
-      {/* FOOTER : VERSION */}
-      {/* <View style={styles.footerVersion}>
-        <Text style={styles.versionText}>version 1.0.0</Text>
-      </View> */}
-
-      {/* MODAL : INFORMATION ET MODIFICATION DU PROFIL AGENT */}
+      {/* MODAL : DETAIL ET MODIFICATION DU PROFIL */}
       <Modal visible={isPersonalInfoOpen} transparent animationType="slide">
         <View style={styles.modalBackdrop}>
           <View style={styles.modalCard}>
@@ -445,7 +442,7 @@ export default function ProfilAgentScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F9FAFB' },
   centered: { justifyContent: 'center', alignItems: 'center' },
-  scrollContent: { paddingBottom: 100 }, // Légère augmentation du padding pour le nouveau bouton
+  scrollContent: { paddingBottom: 100 },
   headerSection: { alignItems: 'center', paddingVertical: height * 0.04 },
   imageContainer: { position: 'relative', marginBottom: 15 },
   profileImage: { width: 100, height: 100, borderRadius: 50, borderWidth: 3, borderColor: COLORS.primary },
@@ -461,8 +458,6 @@ const styles = StyleSheet.create({
   menuIcon: { marginRight: 12 },
   menuItemText: { fontSize: 16, fontWeight: '600' },
   divider: { height: 1, backgroundColor: '#F3F4F6', marginHorizontal: 16 },
-  footerVersion: { position: 'absolute', bottom: 15, left: 0, right: 0, alignItems: 'center' },
-  versionText: { fontSize: 13, color: '#9CA3AF' },
   emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 30 },
   emptyTitle: { fontSize: 22, fontWeight: 'bold', color: '#1F2937', marginTop: 20 },
   emptySubtitle: { fontSize: 14, color: '#9CA3AF', textAlign: 'center', marginTop: 10, marginBottom: 30 },
