@@ -105,6 +105,114 @@ export async function handleGoogleAuthWithClerk(startOAuthFlow, clerkInstance) {
   }
 }
 
+//
+
+export async function handleAppleAuthWithClerk(startOAuthFlow, clerkInstance) {
+  try {
+    const { createdSessionId, setActive, signIn, signUp } = await startOAuthFlow();
+
+    if (createdSessionId) {
+      let email = "";
+      let firstName = "";
+      let lastName = "";
+
+      // 1. Extraction via les données de création de compte (SignUp)
+      if (signUp) {
+        email = signUp.emailAddress;
+        firstName = signUp.firstName;
+        lastName = signUp.lastName;
+      }
+
+      // 2. Extraction via les données de connexion (SignIn)
+      if (!email && signIn) {
+        email = signIn.identifier; 
+        if (signIn.currentFirstFactorVerification?.externalVerificationRedirectUrl) {
+          firstName = signIn.userData?.firstName;
+          lastName = signIn.userData?.lastName;
+        }
+      }
+
+      // 3. Repli de sécurité via l'instance Clerk active
+      if (!email) {
+        await setActive({ session: createdSessionId });
+        await new Promise(resolve => setTimeout(resolve, 80));
+
+        const currentUser = clerkInstance?.user || clerkInstance?.client?.activeSession?.user;
+        if (currentUser) {
+          email = currentUser.primaryEmailAddress?.emailAddress;
+          firstName = currentUser.firstName;
+          lastName = currentUser.lastName;
+        }
+      }
+
+      if (!email) {
+        throw new Error("Clerk Apple email synchronization failed.");
+      }
+
+      let token = null;
+      let user = null;
+
+      try {
+        const data = await getTokenByEmail(email);
+        token = data.token;
+      } catch (e) {
+        // L'utilisateur n'existe pas encore sur l'API backend
+      }
+
+      // 4. Inscription automatique sur ton backend si le token n'existe pas
+      if (!token) {
+        const userInfoForBackend = {
+          email,
+          // Apple cache parfois le nom si l'utilisateur choisit "Masquer mon e-mail"
+          first_name: firstName || "Utilisateur",
+          last_name: lastName || "Apple", 
+          address: "",
+          phone: "",
+          provider: "Apple (Clerk)",
+        };
+        
+        await registerOnBackend(userInfoForBackend);
+        const data = await getTokenByEmail(email);
+        token = data.token;
+      }
+
+      const decodeFn = typeof jwtDecodeModule === 'function' 
+        ? jwtDecodeModule 
+        : (jwtDecodeModule.jwtDecode || jwtDecodeModule.default);
+
+      if (!decodeFn) {
+        throw new Error("JWT decoding library unavailable.");
+      }
+
+      const { user_id } = decodeFn(token);
+      user = await read_user(user_id, token); 
+
+      if (user && !user.id && user.user_id) {
+        user.id = user.user_id; 
+      }
+
+      await Promise.all([
+        setAuthToken({ refresh: null, access: token }),
+        setAuthUser(user)
+      ]);
+      
+      if (!clerkInstance?.user) {
+        await setActive({ session: createdSessionId });
+      }
+
+      return { success: true, token, user };
+    } else {
+      return { success: false, error: "Additional steps required" };
+    }
+  } catch (error) {
+    if (error.message?.includes("already signed in") || error.errors?.[0]?.code === "already_signed_in") {
+      return { success: true, alreadySignedIn: true };
+    }
+    throw error;
+  }
+
+}
+
 // --- Fonctions API Helpers ---
 async function getTokenByEmail(email) {
   const response = await fetch(`${apiEndPoint}/gettoken_bymail/`, {

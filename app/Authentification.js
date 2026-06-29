@@ -50,12 +50,12 @@ export default function LoginScreen() {
       const result = await handleGoogleAuthWithClerk(startOAuthFlow, clerk);
       
       if (result && result.success) {
-        console.log("✅ Django Auth OK ! Synchronisation finale...");
+        console.log("Django Auth OK ! Synchronisation finale...");
         
         // On laisse une courte pause de sécurité pour s'assurer que le thread d'écriture a fini
         await new Promise(resolve => setTimeout(resolve, 200));
         
-        console.log("🚀 Redirection vers les onglets avec session active.");
+        console.log("Redirection vers les onglets avec session active.");
         
         // CORRECTION : Remplacement de navigation.reset par router.replace d'expo-router 
         // avec le paramètre de rafraîchissement natif propre pour forcer les requêtes initiales de tes composants
@@ -76,10 +76,26 @@ export default function LoginScreen() {
   }
 
   const handleAppleSignIn = () => {
-    Alert.alert(
-      "Fonctionnalité indisponible", 
-      "La connexion via Apple n'est pas disponible pour le moment. Veuillez utiliser la connexion par numéro de téléphone."
-    );
+   try {
+      const result = await handleAppleAuthWithClerk(startAppleAuth, clerk);
+      if (result.success) {
+        console.log("Connecté avec Apple !", result.user);
+        // Redirection vers ton espace connecté
+         await new Promise(resolve => setTimeout(resolve, 200));
+        
+        console.log("Redirection vers les onglets avec session active.");
+        
+        // CORRECTION : Remplacement de navigation.reset par router.replace d'expo-router 
+        // avec le paramètre de rafraîchissement natif propre pour forcer les requêtes initiales de tes composants
+        router.replace({
+          pathname: "/(tabs)",
+          params: { refresh: "true" }
+        });
+        
+      }
+    } catch (err) {
+      console.error("Erreur Auth Apple:", err);
+    }
   };
 
   const handleAuth = async () => {
