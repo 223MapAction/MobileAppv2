@@ -75,29 +75,7 @@ export default function LoginScreen() {
     return null; 
   }
 
-  const handleAppleSignIn = () => {
-   try {
-      const result = await handleAppleAuthWithClerk(startAppleAuth, clerk);
-      if (result.success) {
-        console.log("Connecté avec Apple !", result.user);
-        // Redirection vers ton espace connecté
-         await new Promise(resolve => setTimeout(resolve, 200));
-        
-        console.log("Redirection vers les onglets avec session active.");
-        
-        // CORRECTION : Remplacement de navigation.reset par router.replace d'expo-router 
-        // avec le paramètre de rafraîchissement natif propre pour forcer les requêtes initiales de tes composants
-        router.replace({
-          pathname: "/(tabs)",
-          params: { refresh: "true" }
-        });
-        
-      }
-    } catch (err) {
-      console.error("Erreur Auth Apple:", err);
-    }
-  };
-
+    
   const handleAuth = async () => {
     const cleanedNumber = phoneNumber.trim();
     const isValidMaliNumber = /^\d{8}$/.test(cleanedNumber);
@@ -202,16 +180,7 @@ export default function LoginScreen() {
           </Text>
         </TouchableOpacity>
 
-        {!isAndroid && (
-          <TouchableOpacity 
-            style={styles.socialButton}
-            onPress={handleAppleSignIn}
-            disabled={loading}
-          >
-            <FontAwesome name="apple" size={20} color="black" />
-            <Text style={styles.socialButtonText}>Continuer avec Apple</Text>
-          </TouchableOpacity>
-        )}
+
 
         <TouchableOpacity 
           style={styles.guestButton} 
