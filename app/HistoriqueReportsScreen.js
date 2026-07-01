@@ -38,9 +38,19 @@ export default function HistoriqueReportsScreen() {
 
       const response = await getAgentReports(session.token);
       if (response.ok) {
-        // On trie du plus récent au plus ancien si le backend ne le fait pas
-        const sortedData = Array.isArray(response.data) ? response.data : [response.data];
-        setReports(sortedData);
+        // CORRECTION 1 : Extraction sécurisée du tableau depuis "results" ou la racine
+        let rawData = response.data;
+        let reportsArray = [];
+
+        if (rawData && rawData.results && Array.isArray(rawData.results)) {
+          reportsArray = rawData.results;
+        } else if (Array.isArray(rawData)) {
+          reportsArray = rawData;
+        } else if (rawData) {
+          reportsArray = [rawData];
+        }
+
+        setReports(reportsArray);
         setError(null);
       } else {
         setError(response.error?.detail || "Impossible de récupérer vos rapports.");
@@ -65,12 +75,22 @@ export default function HistoriqueReportsScreen() {
       ? new Date(item.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
       : "Date inconnue";
 
+    // CORRECTION 2 : Alignement avec les clés réelles de l'API (location_lat / location_lon)
+    const latitude = item.location_lat || item.lat || 0;
+    const longitude = item.location_lon || item.lon || 0;
+
     return (
       <View style={styles.reportCard}>
         {/* En-tête du rapport */}
         <View style={styles.cardHeader}>
           <View style={styles.incidentInfo}>
-            <Text style={styles.incidentIdText}>Incident #{item.id || item.incidentId || "N/A"}</Text>
+            {/* CORRECTION 3 : Affichage du titre réel de l'incident et de la zone s'ils existent */}
+            <Text style={styles.incidentIdText}>
+              {item.incident_title || `Incident #${item.id?.substring(0, 8) || "N/A"}`}
+            </Text>
+            {item.incident_zone ? (
+              <Text style={styles.zoneText}>Zone : {item.incident_zone}</Text>
+            ) : null}
             <Text style={styles.dateText}>{dateCreation}</Text>
           </View>
           <View style={styles.statusBadge}>
@@ -80,7 +100,7 @@ export default function HistoriqueReportsScreen() {
 
         {/* Contenu textuel */}
         <Text style={styles.notesText} numberOfLines={3}>
-          {item.notes || "Aucune observation rédigée."}
+          {item.notes || "Aucune observation rédigée (Visite effectuée)."}
         </Text>
 
         {/* Section coordonnées GPS & Média */}
@@ -88,7 +108,7 @@ export default function HistoriqueReportsScreen() {
           <View style={styles.geoRow}>
             <Ionicons name="location-sharp" size={14} color="#059669" />
             <Text style={styles.geoText}>
-              Lat: {parseFloat(item.lat || 0).toFixed(4)} | Lon: {parseFloat(item.lon || 0).toFixed(4)}
+              Lat: {parseFloat(latitude).toFixed(4)} | Lon: {parseFloat(longitude).toFixed(4)}
             </Text>
           </View>
 
@@ -205,8 +225,9 @@ const styles = StyleSheet.create({
     shadowRadius: 3 
   },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 },
-  incidentIdText: { fontSize: 14, fontWeight: '700', color: '#1F2937' },
-  dateText: { fontSize: 12, color: '#9CA3AF', marginTop: 2 },
+  incidentIdText: { fontSize: 15, fontWeight: '700', color: '#1F2937', flex: 1, marginRight: 8 },
+  zoneText: { fontSize: 12, color: '#4B5563', fontWeight: '600', marginTop: 2 },
+  dateText: { fontSize: 12, color: '#9CA3AF', marginTop: 4 },
   statusBadge: { backgroundColor: '#D1FAE5', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
   statusText: { color: '#065F46', fontSize: 11, fontWeight: '700', textTransform: 'uppercase' },
   

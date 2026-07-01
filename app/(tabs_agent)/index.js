@@ -24,8 +24,6 @@ const STATUS_LABELS = {
   'resolved': 'Résolu',
 };
 
-
-
 export default function AgentHomeScreen() {
   const router = useRouter();
   const [agent, setAgent] = useState(null);
@@ -49,9 +47,12 @@ export default function AgentHomeScreen() {
 
           // Extraction sécurisée de l'ID de l'agent
           const agentId = agentData?.id || agentData?.user_id || agentData?.user?.id || null;
+          console.log("=== [DEBUG DATA] Extraited AgentId :", agentId, "| Token présent :", !!token);
 
           if (agentId && token) {
             const result = await getMesIncidents(agentId, token);
+
+            console.log("=== [DEBUG DATA] structure complète de result :", JSON.stringify(result));
 
             if (result && result.ok) {
               let localPending = [];
@@ -61,10 +62,25 @@ export default function AgentHomeScreen() {
                 console.error("Erreur récupération incidents locaux :", storageErr);
               }
               
-              const fusionData = [...localPending, ...(result.data || [])];
+              // Vérifie ici si le premier élément possède bien la propriété 'etat'
+              if (result.data && result.data.length > 0) {
+                console.log("=== [DEBUG DATA] Clés du premier incident de result.data :", Object.keys(result.data[0]));
+              } else if (result.data && typeof result.data === 'object') {
+                console.log("=== [DEBUG DATA] Clés de l'objet result.data :", Object.keys(result.data));
+              }
+
+              // Ajuste cette ligne selon ce que te crache le console.log du dessus !
+              const apiIncidents = Array.isArray(result.data) 
+                ? result.data 
+                : (result.data?.incidents || result.data?.results || result.data?.data || []); // Ajout de filtres de secours courants
+
+              console.log("=== [DEBUG DATA] Nombre d'incidents API extraits :", apiIncidents.length);
+              console.log("=== [DEBUG DATA] Nombre d'incidents locaux (Offline) :", localPending.length);
+
+              const fusionData = [...localPending, ...apiIncidents];
               setIncidents(fusionData);
             } else {
-              console.warn("-> [DEBUG ACCUEIL AGENT] Échec API. Bascule locale forcée.");
+              console.warn("-> [DEBUG ACCUEIL AGENT] Échec API (result.ok est false). Bascule locale forcée.");
               await loadOnlyLocalData();
             }
           } else {
@@ -73,7 +89,6 @@ export default function AgentHomeScreen() {
           }
         } catch (error) {
           console.error("❌ [DEBUG ACCUEIL AGENT] CRASH INITIALISATION :", error);
-          // Message d'erreur utilisateur épuré
           Alert.alert(
             "Erreur de synchronisation",
             "Impossible d'actualiser l'ensemble de vos données. Affichage du mode hors-ligne."
@@ -103,7 +118,15 @@ export default function AgentHomeScreen() {
   const filteredIncidents = useMemo(() => {
     if (!incidents || !Array.isArray(incidents)) return [];
     if (activeFilter === 'all') return incidents;
-    return incidents.filter(item => item && item.etat === activeFilter);
+    
+    // Log temporaire pour vérifier si le filtrage bloque
+    console.log(`=== [DEBUG FILTRE] Filtrage actif : "${activeFilter}" | Total incidents avant filtre : ${incidents.length}`);
+    
+    return incidents.filter(item => {
+      // Gère à la fois la clé 'etat' ou 'status' si ton API utilise l'anglais
+      const currentEtat = item?.etat || item?.status; 
+      return item && currentEtat === activeFilter;
+    });
   }, [incidents, activeFilter]);
 
   const getStatusColor = (status) => {
@@ -111,7 +134,7 @@ export default function AgentHomeScreen() {
       case 'declared': return COLORS.primary;
       case 'taken_into_account': return '#f39c12';
       case 'resolved': return '#2ecc71';
-      default: return COLORS.gray1; // Retour sécurisé si statut inconnu
+      default: return COLORS.gray1;
     }
   };
 
@@ -127,7 +150,9 @@ export default function AgentHomeScreen() {
   };
 
   const renderIncidentItem = ({ item }) => {
-    if (!item) return null; // Sécurité anti-crash si l'élément de la liste est corrompu
+    if (!item) return null;
+
+    const currentEtat = item.etat || item.status || "declared";
 
     return (
       <TouchableOpacity 
@@ -156,14 +181,13 @@ export default function AgentHomeScreen() {
         <View style={styles.incidentInfo}>
           <View style={styles.cardHeader}>
             <Text style={styles.incidentTitle} numberOfLines={1}>
-              {item.title || "Sans titre"}
+              {item.title || item.titre || "Sans titre"}
             </Text>
-            <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.etat) }]}>
+            <View style={[styles.statusBadge, { backgroundColor: getStatusColor(currentEtat) }]}>
               <Text style={styles.statusText}>
-                {/* 2. MODIFICATION : Traduction du texte du badge ici */}
                 {item.isOffline 
                   ? "EN ATTENTE" 
-                  : (STATUS_LABELS[item.etat] || item.etat || "Inconnu")}
+                  : (STATUS_LABELS[currentEtat] || currentEtat || "Inconnu")}
               </Text>
             </View>
           </View>
@@ -234,7 +258,7 @@ export default function AgentHomeScreen() {
         <View style={styles.emptyContainer}>
           <View style={styles.emptyContent}>
             <Image source={IMG1} style={styles.mainImage} contentFit="contain" />
-            <Text style={styles.title}>Aucun report pour le moment</Text>
+            <Text style={styles.title}>Aucun incident pour le moment</Text>
             <Text style={styles.description}>
               Vous n'avez pas encore déclaré d'incident sur le terrain ou synchronisé de données locales.
             </Text>
@@ -243,7 +267,7 @@ export default function AgentHomeScreen() {
           <TouchableOpacity style={styles.scanButton} activeOpacity={0.8} onPress={() => router.push('/scanAgent')}>
             <View style={styles.buttonContent}>
               <Ionicons name="camera-outline" size={24} color={COLORS.white} style={styles.buttonIcon} />
-              <Text style={styles.buttonText}>Nouveau report</Text>
+              <Text style={styles.buttonText}>Photographier l’incident</Text>
             </View>
           </TouchableOpacity>
         </View>

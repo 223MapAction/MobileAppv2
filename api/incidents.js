@@ -105,9 +105,11 @@ export const getMesIncidents = async (userId, token) => {
   }
 };
 
-// Ajoute cette fonction dans api/incidents.js
+// Ajoute ou remplace cette fonction dans api/incidents.js
 export const getIncidentByIdOnline = async (incidentId, token) => {
   try {
+    console.log(`=== [API DEBUG] Appel de getIncidentByIdOnline pour l'ID: ${incidentId} ===`);
+    
     const response = await fetch(`${apiEndPoint}/my-incidents/`, {
       method: 'GET',
       headers: {
@@ -117,16 +119,34 @@ export const getIncidentByIdOnline = async (incidentId, token) => {
       },
     });
 
-    const data = await response.json();
+    const responseData = await response.json();
 
     if (response.ok) {
-      // On cherche l'incident spécifique dans le tableau renvoyé par le serveur
-      const incident = data.find(item => item.id?.toString() === incidentId?.toString());
-      return { ok: true, data: incident };
+      // 1. On extrait le tableau de manière sécurisée selon la structure de ta réponse API
+      const tableauIncidents = Array.isArray(responseData) 
+        ? responseData 
+        : (responseData?.incidents || responseData?.results || responseData?.data || []);
+
+      console.log(`=== [API DEBUG] Nombre d'incidents récupérés par l'API : ${tableauIncidents.length} ===`);
+
+      // 2. On cherche l'incident spécifique par son ID (en forçant la comparaison en chaînes de caractères)
+      const incident = tableauIncidents.find(item => 
+        item && (item.id?.toString() === incidentId?.toString() || item.id_local?.toString() === incidentId?.toString())
+      );
+
+      if (incident) {
+        console.log(`=== [API DEBUG] Incident trouvé avec succès dans le tableau ! ===`);
+        return { ok: true, data: incident };
+      } else {
+        console.warn(`-> [API DEBUG] L'ID ${incidentId} n'existe pas dans le tableau renvoyé par le serveur.`);
+        return { ok: false, error: "Incident non trouvé dans la liste serveur" };
+      }
     } else {
-      return { ok: false, error: data };
+      console.error("-> [API DEBUG] Erreur retournée par le serveur (statut non OK) :", responseData);
+      return { ok: false, error: responseData };
     }
   } catch (error) {
+    console.error("❌ [API DEBUG] Crash réseau ou encodage dans getIncidentByIdOnline :", error);
     return { ok: false, error };
   }
 };

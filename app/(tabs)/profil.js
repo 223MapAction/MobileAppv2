@@ -130,7 +130,7 @@ export default function ProfilScreen() {
     }
   };
 
-  const handleLogout = () => {
+const handleLogout = () => {
     Alert.alert(
       "Déconnexion",
       "Êtes-vous sûr de vouloir vous déconnecter ?",
@@ -141,14 +141,22 @@ export default function ProfilScreen() {
           style: "destructive",
           onPress: async () => {
             try {
+              // 1. Déconnexion Clerk si disponible
               if (typeof signOut === 'function') {
                 await signOut().catch(() => null);
               }
-              await clearAuthUser().catch(() => null);
-              await clearAuthToken().catch(() => null);
               
-              setUser(null);
+              // 2. On redirige d'abord vers l'écran d'authentification 
+              // pour quitter l'écran de profil actuel proprement avant de muter son état.
               router.replace('/Authentification'); 
+              
+              // 3. On nettoie les données locales en arrière-plan juste après
+              setTimeout(async () => {
+                await clearAuthUser().catch(() => null);
+                await clearAuthToken().catch(() => null);
+                setUser(null);
+              }, 100);
+
             } catch (error) {
               Alert.alert("Erreur", "Impossible de procéder à la déconnexion.");
             }
@@ -178,13 +186,17 @@ export default function ProfilScreen() {
               // Appel API pour supprimer le compte côté backend
               await delete_user(user.id, token);
 
-              // Nettoyage complet du stockage local et déconnexion
-              await clearAuthUser().catch(() => null);
-              await clearAuthToken().catch(() => null);
-              setUser(null);
+              // Redirection immédiate avant le nettoyage d'état
               router.replace('/Authentification');
-              
-              Alert.alert("Compte supprimé", "Votre compte a été supprimé avec succès.");
+
+              // Nettoyage asynchrone sécurisé
+              setTimeout(async () => {
+                await clearAuthUser().catch(() => null);
+                await clearAuthToken().catch(() => null);
+                setUser(null);
+                Alert.alert("Compte supprimé", "Votre compte a été supprimé avec succès.");
+              }, 100);
+
             } catch (error) {
               Alert.alert("Erreur", "Impossible de supprimer le compte pour le moment.");
             }
@@ -193,6 +205,7 @@ export default function ProfilScreen() {
       ]
     );
   };
+
 
   const firstName = (user?.first_name || '').trim();
   const lastName = (user?.last_name || '').trim();

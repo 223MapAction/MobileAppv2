@@ -39,6 +39,24 @@ export default function HomeScreen() {
           ]);
           let token = tokenData?.access || tokenData;
 
+          // Fonction utilitaire pour extraire proprement le tableau d'incidents
+          const extraireIncidents = (apiResult) => {
+            if (!apiResult) return [];
+            // Si l'API renvoie { results: [...] } (cas paginé)
+            if (apiResult.results && Array.isArray(apiResult.results)) {
+              return apiResult.results;
+            }
+            // Si l'API renvoie { data: [...] }
+            if (apiResult.data && Array.isArray(apiResult.data)) {
+              return apiResult.data;
+            }
+            // Si l'API renvoie directement un tableau brut [...]
+            if (Array.isArray(apiResult)) {
+              return apiResult;
+            }
+            return [];
+          };
+
           // Verrou de stabilisation du stockage d'authentification
           if (params?.refresh === "true" && (!userData || !token)) {
             let userVerif = null;
@@ -59,7 +77,7 @@ export default function HomeScreen() {
               try {
                 const result = await getMesIncidents(userVerif.id, tokenVerif);
                 if (result && result.ok) {
-                  setIncidents(result.data || []);
+                  setIncidents(extraireIncidents(result.data));
                 }
               } catch (apiError) {
                 setIncidents([]);
@@ -75,7 +93,8 @@ export default function HomeScreen() {
             try {
               const result = await getMesIncidents(userData.id, token);
               if (result && result.ok) {
-                setIncidents(result.data || []);
+                // CORRECTION ICI : Extraction sécurisée du tableau d'incidents
+                setIncidents(extraireIncidents(result.data));
               } else {
                 setIncidents([]);
               }
@@ -99,7 +118,6 @@ export default function HomeScreen() {
           }
 
         } catch (error) {
-          // Erreur globale silencieuse en production pour éviter l'écran rouge
           setIncidents([]);
         } finally {
           setLoading(false);
@@ -112,7 +130,7 @@ export default function HomeScreen() {
 
   const filteredIncidents = useMemo(() => {
     if (activeFilter === 'all') return incidents;
-    return incidents.filter(item => item.etat === activeFilter);
+    return incidents.filter(item => item && item.etat === activeFilter);
   }, [incidents, activeFilter]);
 
   const getStatusColor = (status) => {
@@ -127,7 +145,7 @@ export default function HomeScreen() {
   const getStatusLabel = (status) => {
     switch (status) {
       case 'declared': return 'Déclaré';
-      case 'taken_into_account': return 'Pris en compte';
+      case 'taken_into_account': return 'Prise en compte';
       case 'resolved': return 'Résolu';
       default: return status || 'Inconnu';
     }
@@ -140,39 +158,45 @@ export default function HomeScreen() {
     return isNaN(date.getTime()) ? dateString : date.toLocaleDateString('fr-FR');
   };
 
-  const renderIncidentItem = ({ item }) => (
-    <TouchableOpacity 
-      style={styles.incidentCard}
-      activeOpacity={0.8}
-      onPress={() => {
-        router.push({
-          pathname: '/DetailIncidentScreen',
-          params: { id: item.id || item.id_local, isLocal: user ? 'false' : 'true' }
-        });
-      }}
-    >
-      {item.photo ? (
-        <Image source={{ uri: item.photo }} style={styles.incidentImage} />
-      ) : (
-        <View style={[styles.incidentImage, styles.fallbackImageContainer]}>
-          <Ionicons name="image-outline" size={30} color={COLORS.gray1} />
-        </View>
-      )}
-      
-      <View style={styles.incidentInfo}>
-        <View style={styles.cardHeader}>
-          <Text style={styles.incidentTitle} numberOfLines={1}>{item.title || "Incident sans titre"}</Text>
-          <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.etat) }]}>
-            <Text style={styles.statusText}>{getStatusLabel(item.etat)}</Text>
+  const renderIncidentItem = ({ item }) => {
+    if (!item) return null;
+    return (
+      <TouchableOpacity 
+        style={styles.incidentCard}
+        activeOpacity={0.8}
+        onPress={() => {
+          router.push({
+            pathname: '/DetailIncidentScreen',
+            params: { id: item.id || item.id_local, isLocal: user ? 'false' : 'true' }
+          });
+        }}
+      >
+        {item.photo ? (
+          <Image source={{ uri: item.photo }} style={styles.incidentImage} />
+        ) : (
+          <View style={[styles.incidentImage, styles.fallbackImageContainer]}>
+            <Ionicons name="image-outline" size={30} color={COLORS.gray1} />
+          </View>
+        )}
+        
+        <View style={styles.incidentInfo}>
+          <View style={styles.cardHeader}>
+            {/* CORRECTION : Prise en charge de title ou incident_title si la clé varie */}
+            <Text style={styles.incidentTitle} numberOfLines={1}>
+              {item.title || item.incident_title || "Incident sans titre"}
+            </Text>
+            <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.etat || item.status) }]}>
+              <Text style={styles.statusText}>{getStatusLabel(item.etat || item.status)}</Text>
+            </View>
+          </View>
+          <Text style={styles.incidentZone}>{item.zone || item.incident_zone || "Zone non spécifiée"}</Text>
+          <View style={styles.cardFooter}>
+            <Text style={styles.incidentDate}>{formatDate(item.created_at || item.date)}</Text>
           </View>
         </View>
-        <Text style={styles.incidentZone}>{item.zone || "Zone non spécifiée"}</Text>
-        <View style={styles.cardFooter}>
-          <Text style={styles.incidentDate}>{formatDate(item.created_at || item.date)}</Text>
-        </View>
-      </View>
-    </TouchableOpacity>
-  );
+      </TouchableOpacity>
+    );
+  };
 
   const renderRegisterBanner = () => {
     if (user || !showBanner) return null; 
@@ -202,7 +226,7 @@ export default function HomeScreen() {
 
       <TouchableOpacity style={styles.scanButtonInsideList} activeOpacity={0.8} onPress={() => router.push('/scan')}>
         <View style={styles.buttonContent}>
-          <Ionicons name="scan-circle-outline" size={24} color={COLORS.white} style={styles.buttonIcon} />
+          <Ionicons name="camera-outline" size={24} color={COLORS.white} style={styles.buttonIcon} />
           <Text style={styles.buttonText}>Photographier l’incident</Text>
         </View>
       </TouchableOpacity>
@@ -237,7 +261,7 @@ export default function HomeScreen() {
 
           <FlatList
             data={filteredIncidents}
-            keyExtractor={(item, index) => item.id?.toString() || item.created_at || index.toString()}
+            keyExtractor={(item, index) => item?.id?.toString() || item?.created_at || index.toString()}
             renderItem={renderIncidentItem}
             showsVerticalScrollIndicator={false}
             ListEmptyComponent={renderEmptyCategory}
@@ -271,6 +295,8 @@ export default function HomeScreen() {
     </View>
   );
 }
+
+// Le reste des styles reste strictement inchangé...
 
 const styles = StyleSheet.create({
   container: { flex: 1, paddingHorizontal: width * 0.05, paddingTop: 10 },

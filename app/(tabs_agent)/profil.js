@@ -300,7 +300,12 @@ export default function ProfilAgentScreen() {
             <MenuItem 
               icon="document-text-outline" 
               title="Conditions et termes d’utilisation" 
-              onPress={() => console.log('Navigation vers Conditions')} 
+              onPress={() => router.push('/CUG')}
+            />
+            <MenuItem 
+              icon="mail-outline" 
+              title="Contacter le support client" 
+              onPress={() => router.push('/ContactUsScreen')} 
             />
           </View>
         </View>

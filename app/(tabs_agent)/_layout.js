@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons'; // Inclus dans Expo
 import { Tabs } from 'expo-router';
 import { useState } from 'react';
-import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Image, StyleSheet, TouchableOpacity, View } from 'react-native';
 import mapActionLogo from "../../assets/LogoMapAction.png";
 import { COLORS } from '../../Composants/themeConfig';
 
@@ -32,7 +32,7 @@ export default function TabLayout() {
           <View style={styles.headerRightContainer}>
             
             {/* BADGE TEXTUEL STATUT EN LIGNE / HORS LIGNE */}
-            <TouchableOpacity 
+            {/* <TouchableOpacity 
               style={[
                 styles.statusBadge, 
                 { backgroundColor: isOnline ? '#D1FAE5' : '#FEE2E2' } // Fond Vert clair ou Rouge clair
@@ -46,7 +46,7 @@ export default function TabLayout() {
               ]}>
                 {isOnline ? "En ligne" : "Hors ligne"}
               </Text>
-            </TouchableOpacity>
+            </TouchableOpacity> */}
 
             {/* BOUTON NOTIFICATION */}
             <TouchableOpacity style={styles.headerButton}>

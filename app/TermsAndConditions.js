@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Dimensions, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Dimensions, Platform, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { COLORS } from '../Composants/themeConfig';
 import { setTermsAccepted } from '../storage/authStorage';
 
@@ -13,7 +13,8 @@ export default function TermsAndConditionsScreen() {
 
   const handleScroll = ({ nativeEvent }) => {
     const { layoutMeasurement, contentOffset, contentSize } = nativeEvent;
-    const isCloseToBottom = layoutMeasurement.height + contentOffset.y >= contentSize.height - 20;
+    // Ajout d'une marge de tolérance de 40px au lieu de 20px pour éviter les blocages sur Android
+    const isCloseToBottom = layoutMeasurement.height + contentOffset.y >= contentSize.height - 40;
     if (isCloseToBottom && !hasScrolledToBottom) {
       setHasScrolledToBottom(true);
     }
@@ -25,7 +26,6 @@ export default function TermsAndConditionsScreen() {
   };
 
   const handleDecline = () => {
-    // Option: fermer l'app ou afficher un message
     alert("Vous devez accepter les conditions pour utiliser l'application.");
   };
 
@@ -157,7 +157,7 @@ export default function TermsAndConditionsScreen() {
 
         <Text style={styles.sectionTitle}>Communications électroniques</Text>
         <Text style={styles.paragraph}>
-          En acceptant ces CGU, vous acceptez de recevoir toutes les communications liées à l'Application par voie électronique.
+          En accepting ces CGU, vous acceptez de recevoir toutes les communications liées à l'Application par voie électronique.
         </Text>
 
         <Text style={styles.sectionTitle}>Clôture du compte</Text>
@@ -215,10 +215,12 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.white,
+    // Prise en compte de la barre de statut sur Android pour éviter le chevauchement du haut
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
   },
   header: {
     alignItems: 'center',
-    paddingVertical: 20,
+    paddingVertical: 15,
     paddingHorizontal: 20,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.gray2,
@@ -267,10 +269,12 @@ const styles = StyleSheet.create({
   },
   footer: {
     paddingHorizontal: 20,
-    paddingVertical: 15,
     borderTopWidth: 1,
     borderTopColor: COLORS.gray2,
     backgroundColor: COLORS.white,
+    // CORRECTION : Espacement intelligent dynamique pour Android / touches tactiles
+    paddingTop: 10,
+    paddingBottom: Platform.OS === 'android' ? 50 : 15, 
   },
   scrollHint: {
     fontSize: 12,

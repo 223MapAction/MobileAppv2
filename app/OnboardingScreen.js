@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useCallback, useMemo, useRef, useState } from 'react';
-import { Animated, Dimensions, FlatList, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Animated, Dimensions, FlatList, Image, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { COLORS } from '../Composants/themeConfig';
 import { setOnboardingViewed } from '../storage/authStorage';
 
@@ -34,7 +34,6 @@ export default function OnboardingScreen() {
   const slidesRef = useRef(null);
   const router = useRouter();
 
-  // CORRECTION ICI : Utilisation de itemVisiblePercentThreshold (plus sûr et sans faute d'orthographe possible)
   const viewConfig = useMemo(() => ({
     itemVisiblePercentThreshold: 50
   }), []);
@@ -130,12 +129,20 @@ const styles = StyleSheet.create({
   logoContainer: { alignItems: 'center', marginTop: height * 0.05, height: 40 },
   topLogo: { width: 120, height: '100%' },
   slide: { width: width, alignItems: 'center', paddingHorizontal: 30, paddingTop: 10 },
-  illustration: { width: width * 0.85, height: height * 0.42, borderRadius: 24 },
-  title: { fontSize: 28, fontWeight: '800', color: '#1B254B', textAlign: 'center', marginTop: 25, lineHeight: 36 },
+  // Légère réduction de l'illustration sur les petits écrans si nécessaire pour laisser respirer le bas
+  illustration: { width: width * 0.85, height: height * 0.40, borderRadius: 24 },
+  title: { fontSize: 26, fontWeight: '800', color: '#1B254B', textAlign: 'center', marginTop: 20, lineHeight: 34 },
   titleBlue: { color: COLORS.primary },
-  description: { fontSize: 15, color: COLORS.gray1, textAlign: 'center', marginTop: 15, lineHeight: 22 },
-  footer: { paddingHorizontal: 30, paddingBottom: height * 0.04 },
-  paginationContainer: { flexDirection: 'row', justifyContent: 'center', marginBottom: 25 },
+  description: { fontSize: 15, color: COLORS.gray1, textAlign: 'center', marginTop: 12, lineHeight: 22 },
+  
+  // CORRECTION ICI : Remplacement du height * 0.04 par une marge fixe plus haute sur Android
+  footer: { 
+    paddingHorizontal: 30, 
+    paddingTop: 10,
+    paddingBottom: Platform.OS === 'android' ? 60 : 20 
+  },
+  
+  paginationContainer: { flexDirection: 'row', justifyContent: 'center', marginBottom: 20 },
   dot: { height: 8, borderRadius: 4, marginHorizontal: 5 },
   button: {
     backgroundColor: COLORS.primary,
@@ -151,6 +158,7 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   buttonText: { color: 'white', fontSize: 16, fontWeight: '700' },
-  skipButton: { alignItems: 'center', marginTop: 20, paddingVertical: 5 },
+  // Ajustement de la marge haute du bouton passer pour équilibrer la remontée
+  skipButton: { alignItems: 'center', marginTop: 15, paddingVertical: 8 },
   skipText: { color: COLORS.primary, fontSize: 15, fontWeight: '600' },
 });

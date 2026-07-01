@@ -35,6 +35,8 @@ export default function DetailIncidentAgentScreen() {
       try {
         const decodedDetails = JSON.parse(params.incident_detail);
         setIncidentDetail(decodedDetails);
+
+        
       } catch (error) {
         console.error("Erreur de décodage des détails de l'incident :", error);
         Alert.alert("Erreur", "Impossible de charger les détails de cette mission.");
@@ -46,7 +48,7 @@ export default function DetailIncidentAgentScreen() {
     return sound ? () => { sound.unloadAsync(); } : undefined;
   }, [sound]);
 
-  const handleOpenNavigation = () => {
+const handleOpenNavigation = () => {
     const lat = incidentDetail?.lattitude;
     const lon = incidentDetail?.longitude;
 
@@ -56,6 +58,8 @@ export default function DetailIncidentAgentScreen() {
     }
 
     const label = encodeURIComponent(incidentDetail.title || "Incident Terrain");
+    
+    // Protocoles natifs pour les applications installées
     const url = Platform.select({
       ios: `maps:0,0?q=${lat},${lon}(${label})`,
       android: `geo:0,0?q=${lat},${lon}(${label})`
@@ -66,11 +70,19 @@ export default function DetailIncidentAgentScreen() {
         if (supported) {
           return Linking.openURL(url);
         } else {
-          const browserUrl = `http://googleusercontent.com/maps.google.com/?q=${lat},${lon}`;
+          // 🚀 CORRECTION : Utilisation de l'URL universelle officielle de Google Maps
+          const browserUrl = `https://www.google.com/maps/search/?api=1&query=${lat},${lon}`;
           return Linking.openURL(browserUrl);
         }
       })
-      .catch((err) => console.error("Erreur de lancement du GPS :", err));
+      .catch((err) => {
+        console.error("Erreur de lancement du GPS :", err);
+        // Au cas où canOpenURL échoue complètement durant les tests
+        const browserUrl = `https://www.google.com/maps/search/?api=1&query=${lat},${lon}`;
+        Linking.openURL(browserUrl).catch(() => {
+          Alert.alert("Erreur", "Impossible d'ouvrir une application de cartographie.");
+        });
+      });
   };
 
   const handlePlayPauseAudio = async () => {

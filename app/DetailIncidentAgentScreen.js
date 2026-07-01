@@ -20,7 +20,7 @@ export default function DetailIncidentAgentScreen() {
       if (!id) return;
       
       setLoading(true);
-      console.log(`=== [DEBUG] ID reçu: ${id} | Mode local: ${isLocal} ===`);
+      console.log(`\n=== [DEBUG DETAIL] ID reçu: ${id} (Type: ${typeof id}) | Mode local: ${isLocal} ===`);
 
       try {
         // --- CAS 1 : L'INCIDENT EST STOCKÉ EN LOCAL (HORS-LIGNE) ---
@@ -32,6 +32,7 @@ export default function DetailIncidentAgentScreen() {
             );
 
             if (foundLocal) {
+              console.log("=== [DEBUG DETAIL] Incident trouvé dans le cache local (Offline) ===");
               setIncident(foundLocal);
               setLoading(false);
               return;
@@ -43,7 +44,7 @@ export default function DetailIncidentAgentScreen() {
 
         // --- CAS 2 : APPEL API EN LIGNE STANDARD ---
         const session = await getAuthUser().catch(() => null);
-        const token = session?.access || session?.token; // Gestion de la double structure possible du token
+        const token = session?.access || session?.token || session; // Gestion de la double structure possible du token
 
         if (!token) {
           Alert.alert("Session introuvable", "Votre session a expiré. Veuillez vous reconnecter.");
@@ -51,11 +52,22 @@ export default function DetailIncidentAgentScreen() {
           return;
         }
         
-        const result = await getIncidentByIdOnline(id, token).catch(() => null);
+        // Sécurité : On tente de passer l'ID en nombre si c'est ce qu'attend ton backend
+        const cleanId = isNaN(Number(id)) ? id : Number(id);
+        const result = await getIncidentByIdOnline(cleanId, token).catch((e) => {
+          console.error("Erreur lors de l'appel getIncidentByIdOnline :", e);
+          return null;
+        });
         
+        console.log("=== [DEBUG DETAIL] Structure complète du result API :", JSON.stringify(result));
+
         if (result && result.ok && result.data) {
-          setIncident(result.data);
+          // Extraction robuste de l'objet incident (au cas où il est encapsulé)
+          const apiIncidentData = result.data?.incident || result.data?.data || result.data;
+          setIncident(apiIncidentData);
         } else {
+          console.warn("-> [DEBUG DETAIL] Échec ou incident non trouvé sur l'API. Tentative de repli local globale...");
+          
           // Fallback de secours si non trouvé en ligne : recherche globale en local
           const localIncidents = await OfflineManagerAgent.getPendingIncidents().catch(() => []) || [];
           const foundFallback = localIncidents.find(item => 
@@ -63,6 +75,7 @@ export default function DetailIncidentAgentScreen() {
           );
 
           if (foundFallback) {
+            console.log("=== [DEBUG DETAIL] Incident de secours trouvé en local ===");
             setIncident(foundFallback);
           } else {
             Alert.alert("Incident introuvable", "Les détails de cet incident ne sont pas disponibles actuellement.");
@@ -135,13 +148,19 @@ export default function DetailIncidentAgentScreen() {
   if (!incident) {
     return (
       <View style={[styles.container, styles.centered]}>
+        <Ionicons name="alert-circle-outline" size={60} color={COLORS.gray1} style={{ marginBottom: 10 }} />
         <Text style={styles.errorText}>Incident introuvable.</Text>
+        <Text style={{ color: COLORS.gray1, fontSize: 12, marginBottom: 20 }}>ID recherché : {id}</Text>
         <TouchableOpacity style={styles.backButtonText} onPress={() => router.back()}>
-          <Text style={{ color: COLORS.primary, fontWeight: 'bold' }}>Retour</Text>
+          <Text style={{ color: COLORS.primary, fontWeight: 'bold', fontSize: 16 }}>Retour</Text>
         </TouchableOpacity>
       </View>
     );
   }
+
+  // Support des deux versions linguistiques ou clés (API vs Local)
+  const currentEtat = incident?.etat || incident?.status || 'declared';
+  const currentTitle = incident?.title || incident?.titre || "Incident sans titre";
 
   return (
     <View style={styles.container}>
@@ -165,11 +184,11 @@ export default function DetailIncidentAgentScreen() {
         )}
 
         {/* Barre des trois états (Stepper) */}
-        {renderStatusStepper(incident.etat)}
+        {renderStatusStepper(currentEtat)}
 
         {/* Titre de l'incident */}
         <View style={{ marginBottom: 15 }}>
-          <Text style={styles.incidentTitle}>{incident.title || "Incident sans titre"}</Text>
+          <Text style={styles.incidentTitle}>{currentTitle}</Text>
         </View>
 
         {/* Description & Badge de statut */}
@@ -178,9 +197,9 @@ export default function DetailIncidentAgentScreen() {
             <Text style={styles.sectionTitle}>Description</Text>
             <Text style={styles.sectionValue}>{incident.description || "Pas de description renseignée"}</Text>
           </View>
-          <View style={[styles.statusBadge, { backgroundColor: getStatusColor(incident.etat) + '20' }]}>
-            <Text style={[styles.statusText, { color: getStatusColor(incident.etat) }]}>
-              {incident.isOffline ? "HORS-LIGNE" : getStatusLabel(incident.etat).toUpperCase()}
+          <View style={[styles.statusBadge, { backgroundColor: getStatusColor(currentEtat) + '20' }]}>
+            <Text style={[styles.statusText, { color: getStatusColor(currentEtat) }]}>
+              {incident.isOffline ? "HORS-LIGNE" : getStatusLabel(currentEtat).toUpperCase()}
             </Text>
           </View>
         </View>
@@ -261,6 +280,6 @@ const styles = StyleSheet.create({
   videoOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.15)', justifyContent: 'center', alignItems: 'center' },
   videoPlayCircle: { backgroundColor: 'rgba(255,255,255,0.75)', width: 55, height: 55, borderRadius: 27.5, justifyContent: 'center', alignItems: 'center' },
   
-  errorText: { fontSize: 15, color: '#7f8c8d', marginBottom: 15 },
+  errorText: { fontSize: 16, fontWeight: 'bold', color: '#2c3e50', marginBottom: 5 },
   backButtonText: { padding: 10 }
 });

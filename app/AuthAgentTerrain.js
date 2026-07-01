@@ -5,7 +5,10 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  KeyboardAvoidingView,
+  Platform,
   SafeAreaView,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -48,8 +51,7 @@ export default function AuthAgentTerrain() {
     setLoading(false);
 
     if (result.ok) {
-      // Extraction des jetons et infos utilisateur renvoyés par ton backend
-      const { access, refresh, user } = result.data; 
+      const { access, user } = result.data; 
 
       console.log("-> [CHECK] Faut-il changer le PIN ?", user.must_change_pin);
 
@@ -60,7 +62,6 @@ export default function AuthAgentTerrain() {
           [
             { 
               text: "Continuer", 
-              // 🔑 On passe le PIN actuel ET le Token d'accès en paramètres de navigation
               onPress: () => router.push({
                 pathname: '/ChangePinScreen',
                 params: { 
@@ -72,7 +73,6 @@ export default function AuthAgentTerrain() {
           ]
         );
       } else {
-        // Connexion standard directe
         router.replace('/(tabs_agent)'); 
       }
     } else {
@@ -83,80 +83,98 @@ export default function AuthAgentTerrain() {
 
   return (
     <SafeAreaView style={styles.container}>
+      {/* Le bouton retour reste fixe en haut de l'écran pour être toujours accessible */}
       <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
         <FontAwesome name="arrow-left" size={20} color={COLORS.secondary} />
       </TouchableOpacity>
 
-      <View style={styles.content}>
-        <View style={styles.logoContainer}>
-          <Image source={require('../assets/LogoMapAction.png')} style={styles.logo} resizeMode="contain" />
-        </View>
-
-        <View style={styles.textSection}>
-          <Text style={styles.title}>Authentifiez-vous</Text>
-          <Text style={styles.description}>
-            Veuillez vous authentifier pour pouvoir {"\n"}accéder à votre compte agent
-          </Text>
-        </View>
-
-        <View style={styles.phoneInputContainer}>
-          <View style={styles.countryPickerSelector}>
-            <CountryPicker
-              countryCode={countryCode}
-              withFilter withFlag withCallingCode withEmoji
-              onSelect={(country) => {
-                setCountryCode(country.cca2);
-                setCallingCode(country.callingCode[0]);
-              }}
-            />
-            <Text style={styles.callingCodeText}>+{callingCode}</Text>
-          </View>
-          <TextInput
-            style={styles.input}
-            placeholder="Téléphone"
-            keyboardType="phone-pad"
-            value={phoneNumber}
-            onChangeText={setPhoneNumber}
-          />
-        </View>
-
-        <View style={styles.pinInputContainer}>
-          <View style={styles.pinIconSelector}>
-            <FontAwesome name="lock" size={22} color={COLORS.gray1} style={{ width: 25, textAlign: 'center' }} />
-          </View>
-          <TextInput
-            style={styles.input}
-            placeholder="Code PIN (4 chiffres)"
-            keyboardType="numeric"
-            maxLength={4}
-            secureTextEntry={true}
-            value={pinCode}
-            onChangeText={setPinCode}
-          />
-        </View>
-
-        <TouchableOpacity 
-          style={[styles.mainButton, loading && { opacity: 0.8 }]} 
-          onPress={handleAgentAuth}
-          disabled={loading}
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
+        style={{ flex: 1 }}
+      >
+        <ScrollView 
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
         >
-          {loading ? <ActivityIndicator color="white" /> : <Text style={styles.mainButtonText}>S'authentifier</Text>}
-        </TouchableOpacity>
+          <View style={styles.logoContainer}>
+            <Image source={require('../assets/LogoMapAction.png')} style={styles.logo} resizeMode="contain" />
+          </View>
 
-        <View style={styles.securityNotice}>
-          <FontAwesome name="shield" size={14} color={COLORS.gray1} />
-          <Text style={styles.securityNoticeText}>Accès réservé au personnel autorisé</Text>
-        </View>
-      </View>
+          <View style={styles.textSection}>
+            <Text style={styles.title}>Authentifiez-vous</Text>
+            <Text style={styles.description}>
+              Veuillez vous authentifier pour pouvoir {"\n"}accéder à votre compte agent
+            </Text>
+          </View>
+
+          <View style={styles.phoneInputContainer}>
+            <View style={styles.countryPickerSelector}>
+              <CountryPicker
+                countryCode={countryCode}
+                withFilter withFlag withCallingCode withEmoji
+                onSelect={(country) => {
+                  setCountryCode(country.cca2);
+                  setCallingCode(country.callingCode[0]);
+                }}
+              />
+              <Text style={styles.callingCodeText}>+{callingCode}</Text>
+            </View>
+            <TextInput
+              style={styles.input}
+              placeholder="Téléphone"
+              keyboardType="phone-pad"
+              value={phoneNumber}
+              onChangeText={setPhoneNumber}
+            />
+          </View>
+
+          <View style={styles.pinInputContainer}>
+            <View style={styles.pinIconSelector}>
+              <FontAwesome name="lock" size={22} color={COLORS.gray1} style={{ width: 25, textAlign: 'center' }} />
+            </View>
+            <TextInput
+              style={styles.input}
+              placeholder="Code PIN"
+              keyboardType="numeric"
+              maxLength={4}
+              secureTextEntry={true}
+              value={pinCode}
+              onChangeText={setPinCode}
+            />
+          </View>
+
+          <TouchableOpacity 
+            style={[styles.mainButton, loading && { opacity: 0.8 }]} 
+            onPress={handleAgentAuth}
+            disabled={loading}
+          >
+            {loading ? <ActivityIndicator color="white" /> : <Text style={styles.mainButtonText}>S'authentifier</Text>}
+          </TouchableOpacity>
+
+          <View style={styles.securityNotice}>
+            <FontAwesome name="shield" size={14} color={COLORS.gray1} />
+            <Text style={styles.securityNoticeText}>Accès réservé au personnel autorisé</Text>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: 'white' },
-  backButton: { position: 'absolute', top: 50, left: 20, width: 40, height: 40, justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.white, borderRadius: 20, zIndex: 99, elevation: 2 },
-  content: { flex: 1, paddingHorizontal: 25, alignItems: 'center' },
-  logoContainer: { marginTop: 60, marginBottom: 40 },
+  backButton: { position: 'absolute', top: Platform.OS === 'ios' ? 50 : 20, left: 20, width: 40, height: 40, justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.white, borderRadius: 20, zIndex: 99, elevation: 2 },
+  
+  // Utilisation de scrollContent à la place de content
+  scrollContent: { 
+    paddingHorizontal: 25, 
+    alignItems: 'center',
+    paddingBottom: 40, // Marge en bas pour respirer lors du scroll clavier levé
+    paddingTop: 50
+  },
+  
+  logoContainer: { marginTop: 30, marginBottom: 30 },
   logo: { width: 120, height: 120 },
   textSection: { alignItems: 'center', marginBottom: 35 },
   title: { fontSize: 32, fontWeight: 'bold', color: COLORS.secondary, marginBottom: 10 },
