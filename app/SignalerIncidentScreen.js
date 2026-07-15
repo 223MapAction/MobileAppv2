@@ -8,7 +8,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
 import * as VideoThumbnails from 'expo-video-thumbnails';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator, Alert, Dimensions, Image, ScrollView,
   StyleSheet, Text, TextInput, TouchableOpacity, View
@@ -41,6 +41,18 @@ export default function SignalerIncidentScreen() {
   const [audioUri, setAudioUri] = useState(null);
   const [recording, setRecording] = useState(null);
   const [audioLevels, setAudioLevels] = useState([1, 1, 1, 1, 1]); 
+
+  // REFS POUR LE TIMEOUT AUDIO
+  const audioTimerRef = useRef(null);
+  const recordingRef = useRef(null);
+
+  // Synchroniser la ref avec l'état de l'enregistrement
+  useEffect(() => {
+    recordingRef.current = recording;
+    return () => {
+      if (audioTimerRef.current) clearInterval(audioTimerRef.current);
+    };
+  }, [recording]);
 
   // Charger les infos de l'utilisateur connecté
   useEffect(() => {
@@ -92,7 +104,6 @@ export default function SignalerIncidentScreen() {
       
       setLocation({ coords: currentLocation.coords, address: address[0] });
 
-      // Récupération sécurisée de la zone administrative
       try {
         const zoneRecuperee = await getZoneFromOSM(
           currentLocation.coords.latitude,
@@ -102,7 +113,6 @@ export default function SignalerIncidentScreen() {
           setZoneName(zoneRecuperee);
         }
       } catch (apiError) {
-        // Fallback discret sur la ville détectée par reverse geocode si Mapbox échoue
         if (address[0]?.city) setZoneName(address[0].city);
       }
 
@@ -117,7 +127,7 @@ export default function SignalerIncidentScreen() {
     obtenirPosition();
   }, []);
 
-  // Enregistrement de la vidéo et extraction de la vignette
+  // Enregistrement et vérification stricte de la durée de la vidéo
   const handlePickVideo = async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') {
@@ -131,10 +141,24 @@ export default function SignalerIncidentScreen() {
         allowsEditing: true,
         aspect: [16, 9],
         quality: 0.7,
+        videoMaxDuration: 10,
       });
 
       if (!result.canceled) {
         const sourceUri = result.assets[0].uri;
+
+        const playbackObject = new Audio.Sound();
+        const videoStatus = await playbackObject.loadAsync({ uri: sourceUri });
+        await playbackObject.unloadAsync();
+
+        if (videoStatus.durationMillis && videoStatus.durationMillis > 10500) {
+          Alert.alert(
+            "Vidéo trop longue",
+            `Votre vidéo fait ${(videoStatus.durationMillis / 1000).toFixed(1)}s. La durée maximale autorisée est de 10 secondes. Veuillez recommencer.`
+          );
+          return;
+        }
+
         setVideoUri(sourceUri);
 
         try {
@@ -174,12 +198,16 @@ export default function SignalerIncidentScreen() {
           recordingOptions,
           (status) => {
             if (status.metering !== undefined) {
-              const normalizedLevel = Math.max(4, Math.min(35, (status.metering + 160) / 4));
+              const normalizedLevel = Math.max(4, Math.min(24, (status.metering + 160) / 6));
               setAudioLevels((prev) => {
                 const newLevels = [...prev, normalizedLevel];
-                if (newLevels.length > 15) newLevels.shift();
+                if (newLevels.length > 20) newLevels.shift();
                 return newLevels;
               });
+            }
+
+            if (status.durationMillis >= 10000) {
+              stopRecording();
             }
           },
           100
@@ -194,20 +222,28 @@ export default function SignalerIncidentScreen() {
 
   // Audio : Arrêter l'enregistrement
   async function stopRecording() {
-    if (!recording) return;
+    const currentRecording = recordingRef.current || recording;
+    if (!currentRecording) return;
+
     try {
-      const targetRecording = recording;
       setRecording(null);
-      await targetRecording.stopAndUnloadAsync();
-      const uri = targetRecording.getURI();
+      await currentRecording.stopAndUnloadAsync();
+      const uri = currentRecording.getURI();
       setAudioUri(uri);
       setAudioLevels([1, 1, 1, 1, 1]);
     } catch (error) {
+      console.error("Erreur stop audio:", error);
       setRecording(null);
     }
   }
 
-  // Soumission de l'incident (Gestion Online & Offline)
+  // Audio : Supprimer l'audio enregistré
+  const handleDeleteAudio = () => {
+    setAudioUri(null);
+    setAudioLevels([1, 1, 1, 1, 1]);
+  };
+
+  // Soumission de l'incident
   const handleSendIncident = async () => {
     if (!location) {
       Alert.alert("Erreur", "Impossible d'envoyer l'incident sans position GPS.");
@@ -322,7 +358,7 @@ export default function SignalerIncidentScreen() {
             ) : (
               <Ionicons name={videoUri ? "videocam" : "videocam-outline"} size={40} color={videoUri ? COLORS.primary : "gray"} />
             )}
-            <Text style={[styles.cardText, !videoUri && {color: 'gray'}]}>Vidéo</Text>
+            <Text style={[styles.cardText, !videoUri && {color: 'gray'}]}>Vidéo (Max 10s)</Text>
             {videoUri && (
               <View style={styles.checkBadge}>
                 <Ionicons name="checkmark-circle" size={20} color={COLORS.primary} />
@@ -345,35 +381,42 @@ export default function SignalerIncidentScreen() {
           />
         </View>
 
-        {/* COMPOSANT AUDIO STYLE MESSAGERIE */}
+        {/* COMPOSANT AUDIO SIMPLE ET INTEGRÉ */}
         <View style={styles.inputGroup}>
-          <Text style={styles.label}>Audio (Facultatif)</Text>
-          <TouchableOpacity 
-            style={[styles.actionRow, audioUri && {borderColor: COLORS.primary, borderWidth: 2}]} 
-            onPress={recording ? stopRecording : startRecording}
-          >
-            <View style={styles.textContainer}>
-              <Text style={styles.actionTitle}>
-                {recording ? "Enregistrement en cours..." : audioUri ? "Vocal enregistré" : "Ajouter un vocal"}
-              </Text>
-              
-              {recording ? (
+          <Text style={styles.label}>Audio (Max 10s)</Text>
+          <View style={[styles.audioContainer, audioUri && styles.audioContainerActive]}>
+            {recording ? (
+              // En cours d'enregistrement
+              <View style={styles.audioActiveRow}>
+                <View style={styles.pulseDot} />
                 <View style={styles.waveContainer}>
                   {audioLevels.map((level, index) => (
                     <View key={index} style={[styles.waveBar, { height: level }]} />
                   ))}
                 </View>
-              ) : (
-                <Text style={styles.actionSub}>
-                  {audioUri ? "Appuyez pour réenregistrer" : "Appuyez pour enregistrer"}
-                </Text>
-              )}
-            </View>
-
-            <View style={[styles.iconCircleRight, recording && {backgroundColor: '#e74c3c'}]}>
-              <MaterialIcons name={recording ? "stop" : "mic-none"} size={26} color="white" />
-            </View>
-          </TouchableOpacity>
+                <TouchableOpacity style={styles.stopIconBtn} onPress={stopRecording}>
+                  <MaterialIcons name="stop" size={24} color="#e74c3c" />
+                </TouchableOpacity>
+              </View>
+            ) : audioUri ? (
+              // Audio enregistré
+              <View style={styles.audioActiveRow}>
+                <View style={styles.audioSuccessContainer}>
+                  <Ionicons name="checkmark-circle" size={20} color={COLORS.primary} />
+                  <Text style={styles.audioSuccessText}>Vocal enregistré</Text>
+                </View>
+                <TouchableOpacity style={styles.trashIconBtn} onPress={handleDeleteAudio}>
+                  <Ionicons name="trash-outline" size={20} color="#e74c3c" />
+                </TouchableOpacity>
+              </View>
+            ) : (
+              // En attente d'enregistrement
+              <TouchableOpacity style={styles.audioPlaceholderBtn} onPress={startRecording}>
+                <MaterialIcons name="mic-none" size={22} color="gray" style={{ marginRight: 8 }} />
+                <Text style={styles.audioPlaceholderText}>Appuyer pour enregistrer un vocal</Text>
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
 
         {/* MODULE DE GÉOLOCALISATION */}
@@ -430,11 +473,73 @@ const styles = StyleSheet.create({
   inputGroup: { marginBottom: 20 },
   label: { fontSize: 15, fontWeight: '600', color: COLORS.secondary, marginBottom: 8 },
   textArea: { backgroundColor: 'white', borderRadius: 12, padding: 15, height: 100, borderColor: COLORS.gray2, borderWidth: 1, fontSize: 16 },
-  actionRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'white', padding: 15, borderRadius: 12, borderColor: COLORS.gray2, borderWidth: 1, justifyContent: 'space-between' },
-  textContainer: { flex: 1 },
-  iconCircleRight: { width: 45, height: 45, borderRadius: 22.5, backgroundColor: COLORS.primary, justifyContent: 'center', alignItems: 'center' },
-  actionTitle: { fontSize: 16, fontWeight: '600' },
-  actionSub: { fontSize: 13, color: 'gray' },
+  
+  // NOUVEAU STYLE AUDIO SIMPLE ET EMBARQUÉ
+  audioContainer: {
+    backgroundColor: 'white',
+    borderRadius: 12,
+    borderColor: COLORS.gray2,
+    borderWidth: 1,
+    height: 54,
+    justifyContent: 'center',
+    paddingHorizontal: 15,
+  },
+  audioContainerActive: {
+    borderColor: COLORS.primary,
+    borderWidth: 1.5,
+  },
+  audioPlaceholderBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    height: '100%',
+  },
+  audioPlaceholderText: {
+    fontSize: 15,
+    color: 'gray',
+  },
+  audioActiveRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    height: '100%',
+  },
+  audioSuccessContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  audioSuccessText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: COLORS.primary,
+    marginLeft: 8,
+  },
+  trashIconBtn: {
+    padding: 8,
+  },
+  stopIconBtn: {
+    padding: 8,
+  },
+  pulseDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#e74c3c',
+  },
+  waveContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flex: 1,
+    height: '100%',
+    paddingHorizontal: 15,
+  },
+  waveBar: {
+    width: 3,
+    backgroundColor: '#e74c3c',
+    marginHorizontal: 1.5,
+    borderRadius: 1.5,
+  },
+
   locationGroup: { marginBottom: 30 },
   locationContainer: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10 },
   locationTextData: { marginLeft: 12, flex: 1 },
@@ -450,7 +555,4 @@ const styles = StyleSheet.create({
   retryBtnText: { color: 'white', fontSize: 16, fontWeight: 'bold' },
   cancelBtn: { width: '100%', paddingVertical: 15, alignItems: 'center' },
   cancelBtnText: { color: '#7f8c8d', fontSize: 16, fontWeight: '600' },
-  
-  waveContainer: { flexDirection: 'row', alignItems: 'center', height: 40, marginTop: 5 },
-  waveBar: { width: 3, backgroundColor: '#e74c3c', marginHorizontal: 2, borderRadius: 2 },
 });

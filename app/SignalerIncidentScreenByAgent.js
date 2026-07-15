@@ -8,7 +8,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
 import * as VideoThumbnails from 'expo-video-thumbnails';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator, Alert, Dimensions, Image, ScrollView,
   StyleSheet, Text, TextInput, TouchableOpacity, View
@@ -41,6 +41,9 @@ export default function SignalerIncidentScreen() {
   const [audioUri, setAudioUri] = useState(null);
   const [recording, setRecording] = useState(null);
   const [audioLevels, setAudioLevels] = useState([4, 4, 4, 4, 4]); 
+
+  // Référence persistante pour arrêter l'audio proprement s'il dépasse 10 secondes
+  const recordingRef = useRef(null);
 
   // Charger les infos de l'agent connecté
   useEffect(() => {
@@ -120,7 +123,7 @@ export default function SignalerIncidentScreen() {
     obtenirPosition();
   }, []);
 
-  // Sélection/Enregistrement Vidéo
+  // Sélection/Enregistrement Vidéo - Limité à 10 secondes max
   const handlePickVideo = async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') {
@@ -132,11 +135,23 @@ export default function SignalerIncidentScreen() {
       mediaTypes: ImagePicker.MediaTypeOptions.Videos,
       allowsEditing: true,
       aspect: [16, 9],
-      quality: 0.5, // Compresse légèrement pour un téléversement plus rapide sur le terrain
+      quality: 0.5,
+      videoMaxDuration: 10, // Limite l'enregistrement caméra à 10 secondes max
     });
 
     if (!result.canceled) {
-      const sourceUri = result.assets[0].uri;
+      const asset = result.assets[0];
+      const sourceUri = asset.uri;
+      const durationMs = asset.duration;
+
+      if (durationMs && durationMs > 10500) {
+        Alert.alert(
+          "Vidéo trop longue",
+          `La vidéo sélectionnée fait ${(durationMs / 1000).toFixed(1)}s. Elle ne doit pas dépasser 10 secondes.`
+        );
+        return;
+      }
+
       setVideoUri(sourceUri);
 
       try {
@@ -148,7 +163,7 @@ export default function SignalerIncidentScreen() {
     }
   };
 
-  // Audio : Démarrer
+  // Audio : Démarrer - Surveillance active pour limiter à 10 secondes max
   async function startRecording() {
     try {
       const permission = await Audio.requestPermissionsAsync();
@@ -161,11 +176,16 @@ export default function SignalerIncidentScreen() {
           ios: { ...Audio.RecordingOptionsPresets.HIGH_QUALITY.ios, meteringEnabled: true },
         };
 
-        const { recording } = await Audio.Recording.createAsync(
+        const { recording: newRecording } = await Audio.Recording.createAsync(
           recordingOptions,
-          (status) => {
+          async (status) => {
+            if (status.durationMillis >= 10000) {
+              await stopRecording();
+              Alert.alert("Limite atteinte", "L'enregistrement audio est limité à un maximum de 10 secondes.");
+              return;
+            }
+
             if (status.metering !== undefined) {
-              // Normalisation propre pour la hauteur des barres de l'onde visuelle
               const normalizedLevel = Math.max(4, Math.min(35, (status.metering + 160) / 4));
               setAudioLevels((prev) => {
                 const newLevels = [...prev, normalizedLevel];
@@ -176,7 +196,9 @@ export default function SignalerIncidentScreen() {
           },
           100
         );
-        setRecording(recording);
+
+        recordingRef.current = newRecording;
+        setRecording(newRecording);
       }
     } catch (err) {
       Alert.alert('Erreur', 'Impossible de démarrer l\'enregistrement');
@@ -186,17 +208,37 @@ export default function SignalerIncidentScreen() {
   // Audio : Arrêter
   async function stopRecording() {
     try {
-      if (!recording) return;
-      await recording.stopAndUnloadAsync();
-      const uri = recording.getURI();
+      const activeRecording = recordingRef.current;
+      if (!activeRecording) return;
+      
+      await activeRecording.stopAndUnloadAsync();
+      const uri = activeRecording.getURI();
       setAudioUri(uri);
+      
       setRecording(null);
+      recordingRef.current = null;
       setAudioLevels([4, 4, 4, 4, 4]);
     } catch (error) {
-      console.error("Erreur arrêt enregistrement audio :", error);
+      // console.error("Erreur arrêt enregistrement audio :", error);
       setRecording(null);
+      recordingRef.current = null;
     }
   }
+
+  // Audio : Supprimer la note vocale enregistrée
+  const deleteAudio = () => {
+    setAudioUri(null);
+    setAudioLevels([4, 4, 4, 4, 4]);
+  };
+
+  // Nettoyage de l'enregistrement au démontage
+  useEffect(() => {
+    return () => {
+      if (recordingRef.current) {
+        recordingRef.current.stopAndUnloadAsync().catch(() => {});
+      }
+    };
+  }, []);
 
   // Soumission finale de l'incident
   const handleSendIncident = async () => {
@@ -212,8 +254,6 @@ export default function SignalerIncidentScreen() {
 
     setSending(true);
     const network = await NetInfo.fetch().catch(() => ({ isConnected: false }));
-
-    // Extraction sécurisée et résiliente de l'ID utilisateur
     const targetUserId = agent?.id || agent?.user_id || agent?.user?.id || null;
 
     const incidentData = {
@@ -232,7 +272,6 @@ export default function SignalerIncidentScreen() {
 
     try {
       if (network.isConnected) {
-        // Envoi réseau standard
         const result = await envoyerIncident(incidentData, agent.token);
         
         if (result && result.ok) {
@@ -242,25 +281,23 @@ export default function SignalerIncidentScreen() {
           throw new Error("Échec de la validation serveur");
         }
       } else {
-        // Stockage hors-ligne direct si pas de réseau détecté
         const saved = await OfflineManagerAgent.saveForLater(incidentData);
         if (saved) {
           Alert.alert(
             "Mode Hors-ligne", 
             "Aucune connexion réseau. L'incident a été stocké localement et sera synchronisé automatiquement à la détection d'Internet.",
-            [{ text: "Compris", onPress: () => router.replace('/(tabs_agent)') }] 
+            [{ text: "Compris", onPress: () => router.replace('//(tabs_agent)') }] 
           );
         }
       }
     } catch (error) {
       console.error("Erreur envoi direct (bascule sur cache local) :", error);
-      // Sécurité en cas de timeout réseau ou crash API
       const savedFallback = await OfflineManagerAgent.saveForLater(incidentData);
       if (savedFallback) {
         Alert.alert(
           "Rapport mis en sécurité", 
           "Le serveur est momentanément inaccessible. Votre rapport a été stocké localement.",
-          [{ text: "OK", onPress: () => router.replace('/(tabs_agent)') }] 
+          [{ text: "OK", onPress: () => router.replace('//(tabs_agent)') }] 
         );
       }
     } finally {
@@ -323,7 +360,7 @@ export default function SignalerIncidentScreen() {
             ) : (
               <Ionicons name={videoUri ? "videocam" : "videocam-outline"} size={40} color={videoUri ? COLORS.primary : "gray"} />
             )}
-            <Text style={[styles.cardText, !videoUri && {color: 'gray'}]}>Vidéo</Text>
+            <Text style={[styles.cardText, !videoUri && {color: 'gray'}]}>Vidéo  Max 10s</Text>
             {videoUri && (
               <View style={styles.checkBadge}>
                 <Ionicons name="checkmark-circle" size={20} color={COLORS.primary} />
@@ -346,15 +383,15 @@ export default function SignalerIncidentScreen() {
           />
         </View>
 
-        {/* ENREGISTREMENT VOCAL */}
+        {/* ENREGISTREMENT VOCAL AVEC BOUTON SUPPRIMER */}
         <View style={styles.inputGroup}>
-          <Text style={styles.label}>Note vocale (Facultatif)</Text>
-          <TouchableOpacity 
-            style={[styles.actionRow, audioUri && {borderColor: COLORS.primary, borderWidth: 2}]} 
-            onPress={recording ? stopRecording : startRecording}
-            activeOpacity={0.9}
-          >
-            <View style={styles.textContainer}>
+          <Text style={styles.label}>Note vocale (Facultatif - Max 10s)</Text>
+          <View style={[styles.actionRow, audioUri && {borderColor: COLORS.primary, borderWidth: 2}]}>
+            <TouchableOpacity 
+              style={styles.textContainer}
+              onPress={recording ? stopRecording : startRecording}
+              activeOpacity={0.7}
+            >
               <Text style={styles.actionTitle}>
                 {recording ? "Enregistrement en cours..." : audioUri ? "Note vocale enregistrée" : "Enregistrer un vocal"}
               </Text>
@@ -370,12 +407,30 @@ export default function SignalerIncidentScreen() {
                   {audioUri ? "Appuyer pour réenregistrer" : "Appuyer pour démarrer le micro"}
                 </Text>
               )}
-            </View>
+            </TouchableOpacity>
 
-            <View style={[styles.iconCircleRight, recording && {backgroundColor: '#e74c3c'}]}>
-              <MaterialIcons name={recording ? "stop" : "mic-none"} size={26} color="white" />
+            <View style={styles.controlsRow}>
+              {/* Bouton de suppression de l'audio */}
+              {audioUri && !recording && (
+                <TouchableOpacity 
+                  style={styles.deleteAudioBtn} 
+                  onPress={deleteAudio}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="trash-outline" size={22} color="#e74c3c" />
+                </TouchableOpacity>
+              )}
+
+              {/* Bouton principal micro / stop */}
+              <TouchableOpacity
+                style={[styles.iconCircleRight, recording && {backgroundColor: '#e74c3c'}]}
+                onPress={recording ? stopRecording : startRecording}
+                activeOpacity={0.8}
+              >
+                <MaterialIcons name={recording ? "stop" : "mic-none"} size={26} color="white" />
+              </TouchableOpacity>
             </View>
-          </TouchableOpacity>
+          </View>
         </View>
 
         {/* BLOC GEOLOCALISATION */}
@@ -433,7 +488,9 @@ const styles = StyleSheet.create({
   label: { fontSize: 15, fontWeight: '600', color: COLORS.secondary || '#2c3e50', marginBottom: 8 },
   textArea: { backgroundColor: 'white', borderRadius: 12, padding: 15, height: 100, borderColor: COLORS.gray2 || '#f5f6fa', borderWidth: 1, fontSize: 16 },
   actionRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'white', padding: 15, borderRadius: 12, borderColor: COLORS.gray2 || '#f5f6fa', borderWidth: 1, justifyContent: 'space-between' },
-  textContainer: { flex: 1 },
+  textContainer: { flex: 1, marginRight: 10 },
+  controlsRow: { flexDirection: 'row', alignItems: 'center' },
+  deleteAudioBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#fdf2f0', justifyContent: 'center', alignItems: 'center', marginRight: 10 },
   iconCircleRight: { width: 45, height: 45, borderRadius: 22.5, backgroundColor: COLORS.primary, justifyContent: 'center', alignItems: 'center' },
   actionTitle: { fontSize: 16, fontWeight: '600' },
   actionSub: { fontSize: 13, color: 'gray' },

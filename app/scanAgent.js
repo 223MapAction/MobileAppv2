@@ -1,13 +1,16 @@
+import { FontAwesome } from '@expo/vector-icons'; // Importation pour la croix de fermeture
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useRef, useState } from 'react';
 import { ActivityIndicator, Dimensions, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context'; // Pour éviter l'encoche sur iOS
 import { COLORS } from '../Composants/themeConfig';
 
 const { width, height } = Dimensions.get('window');
 
 export default function TabTwoScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets(); // Gestion dynamique de l'encoche iOS
   const [permission, requestPermission] = useCameraPermissions();
   const [photo, setPhoto] = useState(null);
   const [isCameraReady, setIsCameraReady] = useState(false);
@@ -37,6 +40,14 @@ export default function TabTwoScreen() {
   if (!permission.granted) {
     return (
       <View style={[styles.container, styles.centered]}>
+        {/* Bouton pour fermer même si les permissions ne sont pas encore accordées */}
+        <TouchableOpacity 
+          style={[styles.closeButton, { top: insets.top > 0 ? insets.top + 10 : 30 }]} 
+          onPress={() => router.back()}
+        >
+          <FontAwesome name="times" size={20} color="white" />
+        </TouchableOpacity>
+
         <Text style={styles.textInfo}>Accès à la caméra nécessaire pour capturer les anomalies sur le terrain.</Text>
         <TouchableOpacity onPress={requestPermission} style={styles.btnActionPermission}>
           <Text style={{ color: 'white', fontWeight: 'bold' }}>Autoriser l'appareil photo</Text>
@@ -67,6 +78,14 @@ export default function TabTwoScreen() {
       <View style={styles.container}>
         <Image source={{ uri: photo.uri }} style={styles.preview} />
         
+        {/* Bouton de sortie rapide direct depuis l'aperçu */}
+        <TouchableOpacity 
+          style={[styles.closeButton, { top: insets.top > 0 ? insets.top + 10 : 30 }]} 
+          onPress={() => setPhoto(null)}
+        >
+          <FontAwesome name="times" size={20} color="white" />
+        </TouchableOpacity>
+
         <View style={styles.buttonContainer}>
           <TouchableOpacity 
             style={[styles.btnAction, { backgroundColor: COLORS.gray1 || '#7f8c8d' }]} 
@@ -94,6 +113,15 @@ export default function TabTwoScreen() {
         ref={cameraRef}
         onCameraReady={() => setIsCameraReady(true)}
       >
+        {/* BOUTON RETOUR IPHONE (flottant en haut à gauche et s'adaptant à la barre d'état) */}
+        <TouchableOpacity 
+          style={[styles.closeButton, { top: insets.top > 0 ? insets.top + 10 : 30 }]} 
+          onPress={() => router.back()}
+          activeOpacity={0.7}
+        >
+          <FontAwesome name="times" size={22} color="white" />
+        </TouchableOpacity>
+
         <View style={styles.overlay}>
           {loading ? (
             <ActivityIndicator size="large" color="white" style={{ marginBottom: 40 }} />
@@ -127,6 +155,18 @@ const styles = StyleSheet.create({
     flex: 1,
     width: width,
     height: height,
+  },
+  // Bouton X stylisé et flottant
+  closeButton: {
+    position: 'absolute',
+    left: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(0, 0, 0, 0.4)', // Reste visible peu importe l'arrière-plan de la caméra
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 99,
   },
   overlay: {
     flex: 1,
