@@ -6,8 +6,8 @@ import { saveAuthUser } from "../storage/authStorageAgent";
  * Connexion d'un agent de terrain via téléphone + PIN 4 chiffres
  */
 export async function loginAgent(phone, pin) {
-  console.log("=== API CALL: loginAgent ===");
-  console.log("-> URL cible :", `${apiEndPoint}/agent-pin-login/`);
+  // console.log("=== API CALL: loginAgent ===");
+  // console.log("-> URL cible :", `${apiEndPoint}/agent-pin-login/`);
 
   try {
     const response = await fetch(`${apiEndPoint}/agent-pin-login/`, {
@@ -22,7 +22,7 @@ export async function loginAgent(phone, pin) {
     const resultData = await response.json();
 
     if (response.ok) {
-      console.log("-> [API SUCCESS] Connexion réussie pour l'agent :", resultData.user?.first_name);
+      // console.log("-> [API SUCCESS] Connexion réussie pour l'agent :", resultData.user?.first_name);
 
       // 🔑 CRUCIAL : On prépare l'objet session avec le token et les infos de l'utilisateur
       const sessionData = {
@@ -40,7 +40,7 @@ export async function loginAgent(phone, pin) {
       return { ok: false, error: resultData };
     }
   } catch (error) {
-    console.error("-> [API NETWORK ERROR] Impossible de joindre le serveur :", error);
+    // console.error("-> [API NETWORK ERROR] Impossible de joindre le serveur :", error);
     return { ok: false, error: { message: "Impossible de contacter le serveur. Vérifiez votre connexion." } };
   }
 }
@@ -49,11 +49,11 @@ export async function loginAgent(phone, pin) {
  * Change le code PIN de l'agent connecté
  */
 export async function changeAgentPin(oldPin, newPin, token) {
-  console.log("=== API CALL: changeAgentPin ===");
-  console.log("-> URL cible :", `${apiEndPoint}/agent/change-pin/`);
+  // console.log("=== API CALL: changeAgentPin ===");
+  // console.log("-> URL cible :", `${apiEndPoint}/agent/change-pin/`);
 
   if (!token) {
-    console.error("-> [API ERROR] Token d'authentification manquant");
+    // console.error("-> [API ERROR] Token d'authentification manquant");
     return { ok: false, error: { message: "Session expirée. Veuillez vous reconnecter." } };
   }
 
@@ -74,18 +74,18 @@ export async function changeAgentPin(oldPin, newPin, token) {
     const resultData = await response.json();
 
     if (response.ok) {
-      console.log("-> [API SUCCESS] PIN changé avec succès");
+      // console.log("-> [API SUCCESS] PIN changé avec succès");
       
       // 💡 Optionnel mais recommandé : Si ton API renvoie un nouvel utilisateur 
       // ou met à jour `must_change_pin: false`, tu pourras mettre à jour le storage ici.
       
       return { ok: true, data: resultData };
     } else {
-      console.error("-> [API SERVER ERROR] Échec du changement de PIN :", resultData);
+      // console.error("-> [API SERVER ERROR] Échec du changement de PIN :", resultData);
       return { ok: false, error: resultData };
     }
   } catch (error) {
-    console.error("-> [API NETWORK ERROR] Impossible de joindre le serveur :", error);
+    // console.error("-> [API NETWORK ERROR] Impossible de joindre le serveur :", error);
     return { ok: false, error: { message: "Erreur réseau. Impossible de contacter le serveur." } };
   }
 }

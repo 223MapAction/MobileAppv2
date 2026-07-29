@@ -2,108 +2,124 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
 import { envoyerIncident } from './incidents';
 
-// Clé d'archivage dédiée uniquement aux agents
 const AGENT_OFFLINE_QUEUE_KEY = '@MapAction:agent_offline_queue';
-
 let isSynchronizing = false;
 
 export const OfflineManagerAgent = {
 
   /**
-   * Met en attente le rapport d'un agent si le réseau est indisponible
+   * Sauvegarde un incident en local pour l'agent
    */
   saveForLater: async (incidentData) => {
     try {
       const existingQueue = await AsyncStorage.getItem(AGENT_OFFLINE_QUEUE_KEY);
       const queue = existingQueue ? JSON.parse(existingQueue) : [];
+
+      // 🛡️ Anti-doublon à la sauvegarde locale : vérification du contenu
+      const isAlreadyInQueue = queue.some(item => 
+        item.title === incidentData.title && 
+        item.lattitude === incidentData.lattitude && 
+        item.longitude === incidentData.longitude
+      );
+
+      if (isAlreadyInQueue) {
+        console.log("⚠️ [QUEUE AGENT] Incident identique déjà en attente dans la file local. Ignoré.");
+        return true;
+      }
       
       const newIncident = { 
         ...incidentData, 
-        id_local: Date.now().toString(),
+        id_local: `${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
         created_at: incidentData.created_at || new Date().toISOString(),
         isOffline: true
       };
       
       queue.push(newIncident);
       await AsyncStorage.setItem(AGENT_OFFLINE_QUEUE_KEY, JSON.stringify(queue));
-      console.log("-> [AGENT QUEUE] Rapport sauvegardé localement en attente de réseau.");
+      // console.log(`📌 [QUEUE AGENT] Incident sauvegardé localement (ID Local: ${newIncident.id_local})`);
       return true;
     } catch (e) {
-      console.error("-> [AGENT OFFLINE ERROR] Échec de la mise en file d'attente :", e);
+      // console.error("❌ [AGENT OFFLINE ERROR] Échec sauvegarde locale :", e);
       return false;
     }
   },
 
   /**
-   * Récupère les rapports en attente de synchronisation
+   * Récupère la liste des incidents stockés hors-ligne
    */
   getPendingIncidents: async () => {
     try {
       const existingQueue = await AsyncStorage.getItem(AGENT_OFFLINE_QUEUE_KEY);
       return existingQueue ? JSON.parse(existingQueue) : [];
     } catch (e) {
-      console.error("-> [AGENT OFFLINE ERROR] Échec de lecture de la file d'attente :", e);
+      // console.error("❌ [AGENT OFFLINE ERROR] Échec lecture queue :", e);
       return [];
     }
   },
 
   /**
-   * Tente de vider la file d'attente dès que l'agent retrouve du réseau
+   * Tente de vider la file d'attente dès que l'agent a du réseau
    */
   syncPendingIncidents: async () => {
+    // 🛡️ VERROU IMMÉDIAT (Lock synchrone avant tout "await")
     if (isSynchronizing) {
-      console.log("-> [AGENT SYNCHRO] Déjà en cours, appel doublon ignoré.");
+      // console.log("🔒 [SYNCHRO AGENT] Synchronisation déjà en cours. Appel ignoré.");
       return;
     }
 
-    const state = await NetInfo.fetch();
-    if (!state.isConnected) return;
-
-    isSynchronizing = true;
+    isSynchronizing = true; // Positionné AVANT tout appel asynchrone
 
     try {
+      const state = await NetInfo.fetch();
+      if (!state.isConnected) {
+        // console.log("🚫 [SYNCHRO AGENT] Pas de connexion réseau disponible.");
+        return;
+      }
+
       const existingQueue = await AsyncStorage.getItem(AGENT_OFFLINE_QUEUE_KEY);
-      if (!existingQueue) {
-        isSynchronizing = false;
-        return;
-      }
+      if (!existingQueue) return;
 
-      let queue = JSON.parse(existingQueue);
-      if (queue.length === 0) {
-        isSynchronizing = false;
-        return;
-      }
+      const queue = JSON.parse(existingQueue);
+      if (!Array.isArray(queue) || queue.length === 0) return;
 
-      console.log(`-> [AGENT SYNCHRO START] Traitement de ${queue.length} rapports d'agents...`);
-      const updatedQueue = [];
+      // console.log(`📤 [SYNCHRO AGENT DEBUT] Traitement de ${queue.length} incident(s) en attente...`);
+
+      // ⚠️ PROTECTION ANTI-DOUBLON : Vider la file locale AVANT envoi
+      await AsyncStorage.setItem(AGENT_OFFLINE_QUEUE_KEY, JSON.stringify([]));
+
+      const failedIncidents = [];
       
       for (const incident of queue) {
-        // Extraction stricte du token de l'agent et des clés de gestion locale
-        const { id_local, isOffline, agent_token, ...apiData } = incident;
+        const { id_local, isOffline, agent_token, ...apiPayload } = incident;
 
-        // Envoi au serveur sécurisé avec le token requis
-        const result = await envoyerIncident(apiData, agent_token);
+        // console.log(`🚀 [SYNCHRO AGENT ENVOI] ID Local: ${id_local} | Titre: "${apiPayload.title || 'Sans titre'}"`);
+
+        // Inclusion explicite du token (2ème paramètre de envoyerIncident)
+        const tokenToUse = agent_token || apiPayload.token;
+        const result = await envoyerIncident(apiPayload, tokenToUse);
         
-        if (!result.ok) {
-          // Si l'envoi échoue (ex: token expiré ou coupure), on le garde dans la queue
-          updatedQueue.push(incident);
-          console.log(`-> [AGENT SYNCHRO FAILED] Un rapport n'a pas pu partir. Conservé.`);
+        if (result && (result.ok || result.status === 200 || result.status === 201)) {
+          // console.log(`✅ [SYNCHRO AGENT SUCCÈS] Incident local ${id_local} accepté par le serveur !`);
+        } else {
+          // console.warn(`❌ [SYNCHRO AGENT ÉCHEC] Incident local ${id_local} conservé en file d'attente. Raison :`, result?.error);
+          failedIncidents.push(incident);
         }
       }
 
-      // Sauvegarde des seuls rapports en échec
-      await AsyncStorage.setItem(AGENT_OFFLINE_QUEUE_KEY, JSON.stringify(updatedQueue));
-      
-      if (updatedQueue.length === 0) {
-        console.log("-> [AGENT SYNCHRO SUCCESS] Tous les rapports agents ont été envoyés avec succès.");
+      if (failedIncidents.length > 0) {
+        // En cas d'échec partiel, réinjecter les échecs dans AsyncStorage
+        const currentQueue = JSON.parse((await AsyncStorage.getItem(AGENT_OFFLINE_QUEUE_KEY)) || '[]');
+        const updatedQueue = [...currentQueue, ...failedIncidents];
+        await AsyncStorage.setItem(AGENT_OFFLINE_QUEUE_KEY, JSON.stringify(updatedQueue));
+        // console.log(`⚠️ [SYNCHRO AGENT FIN] ${failedIncidents.length} incident(s) réinjectés pour la prochaine tentative.`);
       } else {
-        console.log(`-> [AGENT SYNCHRO PARTIAL] ${updatedQueue.length} rapport(s) toujours bloqué(s).`);
+        // console.log(`🎉 [SYNCHRO AGENT FIN] Tous les incidents ont été synchronisés avec succès !`);
       }
 
     } catch (error) {
-      console.error("-> [AGENT SYNCHRO CRITICAL ERROR] :", error);
+      // console.error("❌ [SYNCHRO AGENT CRITICAL ERROR] :", error);
     } finally {
-      isSynchronizing = false;
+      isSynchronizing = false; // 🔓 Libération définitive du verrou
     }
   }
 };

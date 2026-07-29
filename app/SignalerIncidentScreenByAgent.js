@@ -62,13 +62,14 @@ export default function SignalerIncidentScreen() {
         
         setAgent({ ...agentData, token });
       } catch (error) {
-        console.error("Erreur chargement agent storage :", error);
+        // console.error("Erreur chargement agent storage :", error);
       }
     };
     loadAgent();
   }, []);
 
   // Gestion de la géolocalisation
+  // Gestion de la géolocalisation (compatible Mode Hors-Ligne)
   const obtenirPosition = async () => {
     setLoadingLocation(true);
     setLocationError(false);
@@ -93,32 +94,64 @@ export default function SignalerIncidentScreen() {
         return;
       }
 
+      // 1. Coordonnées GPS natives (Fonctionne 100% Hors-Ligne sans Internet)
       let currentLocation = await Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.Balanced,
       });
-      
-      let address = await Location.reverseGeocodeAsync({
-        latitude: currentLocation.coords.latitude,
-        longitude: currentLocation.coords.longitude,
-      });
-      
-      setLocation({ coords: currentLocation.coords, address: address[0] });
 
-      const zoneRecuperee = await getZoneFromOSM(
-        currentLocation.coords.latitude,
-        currentLocation.coords.longitude
-      ).catch(() => 'Bamako');
-      
-      setZoneName(zoneRecuperee);
+      let addressData = null;
+
+      // 2. Tentative de reverse geocoding (échoue silencieusement si pas d'Internet)
+      try {
+        let address = await Location.reverseGeocodeAsync({
+          latitude: currentLocation.coords.latitude,
+          longitude: currentLocation.coords.longitude,
+        });
+        if (address && address.length > 0) {
+          addressData = address[0];
+        }
+      } catch (geocodeErr) {
+        // En mode hors-ligne, cette étape est ignorée sans bloquer le GPS
+      }
+
+      setLocation({ 
+        coords: currentLocation.coords, 
+        address: addressData 
+      });
+
+      // 3. Tentative d'obtention de la zone OSM
+      let zoneTrouvee = false;
+      try {
+        const zoneRecuperee = await getZoneFromOSM(
+          currentLocation.coords.latitude,
+          currentLocation.coords.longitude
+        );
+        if (zoneRecuperee) {
+          setZoneName(zoneRecuperee);
+          zoneTrouvee = true;
+        }
+      } catch (apiError) {
+        // Ignorer l'erreur réseau
+      }
+
+      // Fallback automatique si aucune connexion n'a permis de trouver la zone
+      if (!zoneTrouvee) {
+        if (addressData?.city) {
+          setZoneName(addressData.city);
+        } else {
+          setZoneName("Zone non récupérée");
+        }
+      }
 
     } catch (error) {
-      console.error("Erreur localisation :", error);
+      // console.error("Erreur localisation :", error);
       setLocationError(true);
     } finally {
       setLoadingLocation(false);
     }
   };
 
+  
   useEffect(() => {
     obtenirPosition();
   }, []);
@@ -286,18 +319,18 @@ export default function SignalerIncidentScreen() {
           Alert.alert(
             "Mode Hors-ligne", 
             "Aucune connexion réseau. L'incident a été stocké localement et sera synchronisé automatiquement à la détection d'Internet.",
-            [{ text: "Compris", onPress: () => router.replace('//(tabs_agent)') }] 
+            [{ text: "Compris", onPress: () => router.replace('/(tabs_agent)') }] 
           );
         }
       }
     } catch (error) {
-      console.error("Erreur envoi direct (bascule sur cache local) :", error);
+      // console.error("Erreur envoi direct (bascule sur cache local) :", error);
       const savedFallback = await OfflineManagerAgent.saveForLater(incidentData);
       if (savedFallback) {
         Alert.alert(
           "Rapport mis en sécurité", 
           "Le serveur est momentanément inaccessible. Votre rapport a été stocké localement.",
-          [{ text: "OK", onPress: () => router.replace('//(tabs_agent)') }] 
+          [{ text: "OK", onPress: () => router.replace('/(tabs_agent)') }] 
         );
       }
     } finally {

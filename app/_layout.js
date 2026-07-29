@@ -5,6 +5,7 @@ import * as Linking from "expo-linking";
 import { Stack, useRouter } from "expo-router";
 import { useEffect } from "react";
 import { OfflineManager } from '../api/offlineManager';
+import { OfflineManagerAgent } from '../api/OfflineManagerAgent';
 
 const CLERK_PUBLISHABLE_KEY = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY;
 
@@ -38,6 +39,7 @@ export default function RootLayout() {
     const unsubscribe = NetInfo.addEventListener(state => {
       if (state.isConnected && state.isInternetReachable) {
         OfflineManager.syncPendingIncidents();
+        OfflineManagerAgent.syncPendingIncidents();
       }
     });
     return () => unsubscribe();

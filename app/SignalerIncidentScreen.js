@@ -93,17 +93,35 @@ export default function SignalerIncidentScreen() {
         return;
       }
 
+      // 1. Récupération native des coordonnées GPS (Fonctionne Hors-Ligne)
       let currentLocation = await Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.Balanced,
       });
-      
-      let address = await Location.reverseGeocodeAsync({
-        latitude: currentLocation.coords.latitude,
-        longitude: currentLocation.coords.longitude,
-      });
-      
-      setLocation({ coords: currentLocation.coords, address: address[0] });
 
+      let addressData = null;
+
+      // 2. Tentative de reverse geocoding (nécessite Internet)
+      try {
+        let address = await Location.reverseGeocodeAsync({
+          latitude: currentLocation.coords.latitude,
+          longitude: currentLocation.coords.longitude,
+        });
+        if (address && address.length > 0) {
+          addressData = address[0];
+        }
+      } catch (geocodeErr) {
+        // En mode hors-ligne, reverseGeocodeAsync va échouer silencieusement ici
+        console.log("Impossible de récupérer l'adresse (hors-ligne)");
+      }
+
+      // Mise à jour de la position GPS avec ou sans adresse
+      setLocation({ 
+        coords: currentLocation.coords, 
+        address: addressData 
+      });
+
+      // 3. Tentative de récupération de la zone via OSM
+      let zoneTrouvee = false;
       try {
         const zoneRecuperee = await getZoneFromOSM(
           currentLocation.coords.latitude,
@@ -111,9 +129,20 @@ export default function SignalerIncidentScreen() {
         );
         if (zoneRecuperee) {
           setZoneName(zoneRecuperee);
+          zoneTrouvee = true;
         }
       } catch (apiError) {
-        if (address[0]?.city) setZoneName(address[0].city);
+        // Échec API / réseau
+      }
+
+      // Fallback si OSM n'a rien renvoyé
+      if (!zoneTrouvee) {
+        if (addressData?.city) {
+          setZoneName(addressData.city);
+        } else {
+          // Valeur de secours quand il n'y a pas de réseau
+          setZoneName("Zone non récupérée");
+        }
       }
 
     } catch (error) {
@@ -123,6 +152,7 @@ export default function SignalerIncidentScreen() {
     }
   };
 
+  
   useEffect(() => {
     obtenirPosition();
   }, []);

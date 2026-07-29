@@ -39,7 +39,7 @@ export const getZoneFromCoordinates = async (latitude, longitude) => {
     return data.features?.[0]?.text || data.features?.[0]?.place_name || "Zone inconnue";
 
   } catch (error) {
-    console.error("-> [ERROR] Erreur lors de la récupération de la zone :", error);
+    // console.error("-> [ERROR] Erreur lors de la récupération de la zone :", error);
     return "Zone inconnue";
   }
 };
@@ -94,7 +94,7 @@ export const getZoneFromOSM = async (latitude, longitude) => {
     return "Zone inconnue";
 
   } catch (error) {
-    console.error("-> [ERROR] Erreur lors de la récupération de la zone via OSM :", error);
+    // console.error("-> [ERROR] Erreur lors de la récupération de la zone via OSM :", error);
     return "Zone inconnue";
   }
 };
