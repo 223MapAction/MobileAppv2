@@ -1,21 +1,11 @@
-import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import { SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { COLORS } from '../Composants/themeConfig';
+import ScreenHeader from '../Composants/ScreenHeader';
 
 export default function AboutScreen() {
-  const router = useRouter();
-
   return (
     <SafeAreaView style={styles.safeArea}>
-      
-      {/* HEADER BLOQUÉ : Sorti du ScrollView */}
-      <View style={styles.headerRow}>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={24} color={COLORS.primary} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>À propos de Map Action</Text>
-      </View>
+      <ScreenHeader title="À propos de Map Action" />
 
       {/* CONTENU DÉFILANT */}
       <ScrollView contentContainerStyle={styles.scrollContent}>
@@ -68,34 +58,14 @@ export default function AboutScreen() {
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: COLORS.white },
-  
-  // Header bloqué
-  headerRow: { 
-    flexDirection: 'row',
-    marginTop:30, 
-    alignItems: 'center', 
-    paddingHorizontal: 10,
-    paddingVertical: 15,
-    backgroundColor: COLORS.white,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-    zIndex: 10,
+
+  scrollContent: {
+    paddingHorizontal: 20,
+    paddingTop: 10,
+    paddingBottom: 40
   },
-  headerTitle: { 
-    fontSize: 18, 
-    fontWeight: 'bold', 
-    color: COLORS.primary,
-    marginLeft: 10 
-  },
-  
-  scrollContent: { 
-    paddingHorizontal: 20, 
-    paddingTop: 10, 
-    paddingBottom: 40 
-  },
-  backButton: { padding: 10 },
-  
-  sectionTitle: { 
+
+  sectionTitle: {
     fontSize: 18, 
     fontWeight: 'bold', 
     marginTop: 20, 

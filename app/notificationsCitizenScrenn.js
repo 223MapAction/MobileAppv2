@@ -1,15 +1,14 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, RefreshControl, SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { fetchNotifications } from '../api/notificationCitizen';
 import { COLORS } from '../Composants/themeConfig';
+import ScreenHeader from '../Composants/ScreenHeader';
 
 export default function NotificationsCitizenScreen() {
   const [notifications, setNotifications] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const router = useRouter();
 
   const loadNotifications = async (showLoader = false) => {
     if (showLoader) setIsLoading(true);
@@ -74,13 +73,7 @@ export default function NotificationsCitizenScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      {/* Header fixe (Identique à FaqScreen) */}
-      <View style={styles.headerRow}>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={24} color={COLORS.primary} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Mes notifications</Text>
-      </View>
+      <ScreenHeader title="Mes notifications" />
 
       {/* Liste des notifications */}
       <FlatList
@@ -113,22 +106,7 @@ export default function NotificationsCitizenScreen() {
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: '#f9f9f9' },
-  
-  // Header fixe basé sur le design de FaqScreen
-  headerRow: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    paddingHorizontal: 10,
-    paddingVertical: 15, 
-    backgroundColor: COLORS.white,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0', 
-    zIndex: 10, 
-    marginTop: 30,
-  },
-  headerTitle: { fontSize: 18, fontWeight: 'bold', color: COLORS.primary, marginLeft: 10 },
-  backButton: { padding: 10 },
-  
+
   centerContainer: {
     flex: 1,
     justifyContent: 'center',

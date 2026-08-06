@@ -11,14 +11,13 @@ import {
   SafeAreaView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View
 } from 'react-native';
-import CountryPicker from 'react-native-country-picker-modal';
 import { requestOtp } from '../api/Auth';
 import { handleGoogleAuthWithClerk } from "../api/socialAuth";
 import { COLORS } from '../Composants/themeConfig';
+import PhoneCountryInput from '../Composants/PhoneCountryInput';
 
 export default function LoginScreen() {
   const navigation = useNavigation();
@@ -130,26 +129,14 @@ export default function LoginScreen() {
           </Text>
         </View>
 
-        <View style={styles.phoneInputContainer}>
-          <View style={styles.countryPickerSelector}>
-            <CountryPicker
-              countryCode={countryCode}
-              withFilter withFlag withCallingCode withEmoji
-              onSelect={(country) => {
-                setCountryCode(country.cca2);
-                setCallingCode(country.callingCode[0]);
-              }}
-            />
-            <Text style={styles.callingCodeText}>+{callingCode}</Text>
-          </View>
-          <TextInput
-            style={styles.input}
-            placeholder="Téléphone"
-            keyboardType="phone-pad"
-            value={phoneNumber}
-            onChangeText={setPhoneNumber}
-          />
-        </View>
+        <PhoneCountryInput
+          countryCode={countryCode}
+          callingCode={callingCode}
+          phoneNumber={phoneNumber}
+          onCountryChange={(cca2, calling) => { setCountryCode(cca2); setCallingCode(calling); }}
+          onPhoneNumberChange={setPhoneNumber}
+          containerStyle={{ marginBottom: 20 }}
+        />
 
         <TouchableOpacity 
           style={[styles.mainButton, loading && { opacity: 0.8 }]} 
@@ -203,10 +190,6 @@ const styles = StyleSheet.create({
   textSection: { alignItems: 'center', marginBottom: 35 },
   title: { fontSize: 32, fontWeight: 'bold', color: COLORS.secondary, marginBottom: 10 },
   description: { fontSize: 14, color: COLORS.gray1, textAlign: 'center', paddingHorizontal: 10, lineHeight: 20 },
-  phoneInputContainer: { flexDirection: 'row', width: '100%', height: 60, borderWidth: 1, borderColor: COLORS.gray2, borderRadius: 15, alignItems: 'center', paddingHorizontal: 15, backgroundColor: COLORS.white, marginBottom: 20 },
-  countryPickerSelector: { flexDirection: 'row', alignItems: 'center', borderRightWidth: 1, borderRightColor: COLORS.gray2, paddingRight: 10, marginRight: 15 },
-  callingCodeText: { fontSize: 16, fontWeight: '600', marginLeft: 5 },
-  input: { flex: 1, fontSize: 16, color: 'black' },
   mainButton: { width: '100%', height: 55, backgroundColor: COLORS.primary, borderRadius: 15, justifyContent: 'center', alignItems: 'center', elevation: 3 },
   mainButtonText: { color: 'white', fontSize: 16, fontWeight: 'bold' },
   dividerContainer: { flexDirection: 'row', alignItems: 'center', marginVertical: 30, width: '100%' },

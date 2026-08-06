@@ -1,7 +1,6 @@
-import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import { SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { COLORS } from '../Composants/themeConfig';
+import ScreenHeader from '../Composants/ScreenHeader';
 
 const faqData = [
   { q: "Qu'est-ce que Map Action ?", a: "Map Action est une application mobile citoyenne et gratuite qui permet de signaler des incidents environnementaux et d’assainissement en y associant des photos, des vidéos, des notes vocales et une position géographique." },
@@ -28,17 +27,9 @@ const faqData = [
 ];
 
 export default function FaqScreen() {
-  const router = useRouter();
-
   return (
     <SafeAreaView style={styles.safeArea}>
-      {/* Header fixe */}
-      <View style={styles.headerRow}>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={24} color={COLORS.primary} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Foire aux questions</Text>
-      </View>
+      <ScreenHeader title="Foire aux questions" />
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
         {faqData.map((item, index) => (
@@ -59,13 +50,6 @@ export default function FaqScreen() {
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: '#f9f9f9' },
-  headerRow: { 
-    flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10,
-    paddingVertical: 15, backgroundColor: COLORS.white, borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0', zIndex: 10 , marginTop:30,
-  },
-  headerTitle: { fontSize: 18, fontWeight: 'bold', color: COLORS.primary, marginLeft: 10 },
-  backButton: { padding: 10 },
   scrollContent: { padding: 20 },
   faqItem: { marginBottom: 20, padding: 15, backgroundColor: COLORS.white, borderRadius: 12 },
   question: { fontWeight: 'bold', fontSize: 16, color: COLORS.primary },

@@ -16,6 +16,7 @@ import {
 } from 'react-native';
 import { apiEndPoint } from '../api/apiUrl'; // Ajuste le chemin relatif si nécessaire
 import { COLORS } from '../Composants/themeConfig';
+import ScreenHeader from '../Composants/ScreenHeader';
 import { getAuthToken, getAuthUser } from '../storage/authStorage';
 
 export default function ContactUsScreen() {
@@ -98,14 +99,7 @@ export default function ContactUsScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      
-      {/* HEADER FIXE BLOQUÉ */}
-      <View style={styles.headerRow}>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={24} color={COLORS.primary} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Contactez-nous</Text>
-      </View>
+      <ScreenHeader title="Contactez-nous" />
 
       {/* COMPOSANT ÉVITAGE DE CLAVIER */}
       <KeyboardAvoidingView 
@@ -194,27 +188,8 @@ export default function ContactUsScreen() {
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: COLORS.white },
   container: { flex: 1 },
-  
-  headerRow: { 
-    flexDirection: 'row',
-    marginTop: 30, 
-    alignItems: 'center', 
-    paddingHorizontal: 10,
-    paddingVertical: 15,
-    backgroundColor: COLORS.white,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-    zIndex: 10,
-  },
-  headerTitle: { 
-    fontSize: 18, 
-    fontWeight: 'bold', 
-    color: COLORS.primary,
-    marginLeft: 10 
-  },
-  backButton: { padding: 10 },
-  
-  scrollContent: { 
+
+  scrollContent: {
     paddingHorizontal: 20, 
     paddingTop: 20, 
     paddingBottom: 40 
