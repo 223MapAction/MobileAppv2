@@ -1,11 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
 import { envoyerIncident } from './incidents';
-
-// CLÉ 1 : File d'attente temporaire (Online / Offline)
-const OFFLINE_QUEUE_KEY = '@incident_offline_queue';
-// CLÉ 2 : Historique permanent UNIQUEMENT pour les anonymes
-const ANONYMOUS_HISTORY_KEY = '@incident_anonymous_history';
+import { ANONYMOUS_HISTORY_KEY, OFFLINE_QUEUE_KEY } from '../storage/storageKeys';
 
 let isSynchronizing = false;
 

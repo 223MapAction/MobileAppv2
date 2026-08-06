@@ -1,6 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-
-const AGENT_KEY = '@MapAction:auth_agent';
+import { AGENT_KEY } from './storageKeys';
 
 /**
  * Sauvegarde les informations de l'agent connecté (User + Tokens)

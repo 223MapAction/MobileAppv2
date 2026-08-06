@@ -1,8 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
 import { envoyerIncident } from './incidents';
+import { AGENT_OFFLINE_QUEUE_KEY } from '../storage/storageKeys';
 
-const AGENT_OFFLINE_QUEUE_KEY = '@MapAction:agent_offline_queue';
 let isSynchronizing = false;
 
 export const OfflineManagerAgent = {
