@@ -36,10 +36,8 @@ export const OfflineManagerAgent = {
       
       queue.push(newIncident);
       await AsyncStorage.setItem(AGENT_OFFLINE_QUEUE_KEY, JSON.stringify(queue));
-      // console.log(`📌 [QUEUE AGENT] Incident sauvegardé localement (ID Local: ${newIncident.id_local})`);
       return true;
     } catch (e) {
-      // console.error("❌ [AGENT OFFLINE ERROR] Échec sauvegarde locale :", e);
       return false;
     }
   },
@@ -52,7 +50,6 @@ export const OfflineManagerAgent = {
       const existingQueue = await AsyncStorage.getItem(AGENT_OFFLINE_QUEUE_KEY);
       return existingQueue ? JSON.parse(existingQueue) : [];
     } catch (e) {
-      // console.error("❌ [AGENT OFFLINE ERROR] Échec lecture queue :", e);
       return [];
     }
   },
@@ -63,7 +60,6 @@ export const OfflineManagerAgent = {
   syncPendingIncidents: async () => {
     // 🛡️ VERROU IMMÉDIAT (Lock synchrone avant tout "await")
     if (isSynchronizing) {
-      // console.log("🔒 [SYNCHRO AGENT] Synchronisation déjà en cours. Appel ignoré.");
       return;
     }
 
@@ -72,7 +68,6 @@ export const OfflineManagerAgent = {
     try {
       const state = await NetInfo.fetch();
       if (!state.isConnected) {
-        // console.log("🚫 [SYNCHRO AGENT] Pas de connexion réseau disponible.");
         return;
       }
 
@@ -82,8 +77,6 @@ export const OfflineManagerAgent = {
       const queue = JSON.parse(existingQueue);
       if (!Array.isArray(queue) || queue.length === 0) return;
 
-      // console.log(`📤 [SYNCHRO AGENT DEBUT] Traitement de ${queue.length} incident(s) en attente...`);
-
       // ⚠️ PROTECTION ANTI-DOUBLON : Vider la file locale AVANT envoi
       await AsyncStorage.setItem(AGENT_OFFLINE_QUEUE_KEY, JSON.stringify([]));
 
@@ -92,16 +85,13 @@ export const OfflineManagerAgent = {
       for (const incident of queue) {
         const { id_local, isOffline, agent_token, ...apiPayload } = incident;
 
-        // console.log(`🚀 [SYNCHRO AGENT ENVOI] ID Local: ${id_local} | Titre: "${apiPayload.title || 'Sans titre'}"`);
-
         // Inclusion explicite du token (2ème paramètre de envoyerIncident)
         const tokenToUse = agent_token || apiPayload.token;
         const result = await envoyerIncident(apiPayload, tokenToUse);
         
         if (result && (result.ok || result.status === 200 || result.status === 201)) {
-          // console.log(`✅ [SYNCHRO AGENT SUCCÈS] Incident local ${id_local} accepté par le serveur !`);
+          // succès : rien à faire, l'incident n'est pas réinjecté
         } else {
-          // console.warn(`❌ [SYNCHRO AGENT ÉCHEC] Incident local ${id_local} conservé en file d'attente. Raison :`, result?.error);
           failedIncidents.push(incident);
         }
       }
@@ -111,13 +101,9 @@ export const OfflineManagerAgent = {
         const currentQueue = JSON.parse((await AsyncStorage.getItem(AGENT_OFFLINE_QUEUE_KEY)) || '[]');
         const updatedQueue = [...currentQueue, ...failedIncidents];
         await AsyncStorage.setItem(AGENT_OFFLINE_QUEUE_KEY, JSON.stringify(updatedQueue));
-        // console.log(`⚠️ [SYNCHRO AGENT FIN] ${failedIncidents.length} incident(s) réinjectés pour la prochaine tentative.`);
-      } else {
-        // console.log(`🎉 [SYNCHRO AGENT FIN] Tous les incidents ont été synchronisés avec succès !`);
       }
 
     } catch (error) {
-      // console.error("❌ [SYNCHRO AGENT CRITICAL ERROR] :", error);
     } finally {
       isSynchronizing = false; // 🔓 Libération définitive du verrou
     }

@@ -70,11 +70,9 @@ export const envoyerIncident = async (payload) => {
     if (response.status === 201 || response.status === 200) {
       return { ok: true, data: JSON.parse(responseText) };
     } else {
-      // console.log("Erreur Serveur Brut:", responseText);
       return { ok: false, error: responseText, status: response.status };
     }
   } catch (error) {
-    // console.error("Erreur lors de l'envoi de l'incident:", error);
     return { ok: false, error };
   }
 };
