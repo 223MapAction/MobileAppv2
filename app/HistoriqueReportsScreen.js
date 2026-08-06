@@ -141,7 +141,7 @@ export default function HistoriqueReportsScreen() {
           onPress={() => router.replace('/(tabs_agent)/assigner')}
           activeOpacity={0.7}
         >
-          <Ionicons name="arrow-back" size={24} color="#1F2937" />
+          <Ionicons name="arrow-back" size={24} color={COLORS.gray800} />
         </TouchableOpacity>
         
         <View style={styles.headerTitleContainer}>
@@ -169,7 +169,7 @@ export default function HistoriqueReportsScreen() {
           }
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
-              <MaterialCommunityIcons name="clipboard-text-off-outline" size={60} color="#9CA3AF" />
+              <MaterialCommunityIcons name="clipboard-text-off-outline" size={60} color={COLORS.gray400} />
               <Text style={styles.emptyTitle}>Aucun rapport envoyé</Text>
               <Text style={styles.emptySub}>Vos rapports validés sur le terrain s'afficheront ici.</Text>
             </View>
@@ -181,9 +181,9 @@ export default function HistoriqueReportsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F9FAFB' },
+  container: { flex: 1, backgroundColor: COLORS.gray50 },
   centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
-  loadingText: { marginTop: 12, color: '#6B7280', fontSize: 14, fontWeight: '500' },
+  loadingText: { marginTop: 12, color: COLORS.gray500, fontSize: 14, fontWeight: '500' },
   errorText: { color: '#EF4444', fontWeight: '600', fontSize: 14, marginTop: 10, textAlign: 'center' },
   retryBtn: { marginTop: 15, paddingVertical: 10, paddingHorizontal: 20, backgroundColor: '#EFF6FF', borderRadius: 10 },
   retryBtnText: { color: COLORS.primary, fontWeight: '700' },
@@ -194,7 +194,7 @@ const styles = StyleSheet.create({
     paddingTop: Platform.OS === 'ios' ? 55 : 35,
     paddingBottom: 16,
     borderBottomWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: COLORS.gray200,
     flexDirection: 'row',
     alignItems: 'center',
   },
@@ -206,8 +206,8 @@ const styles = StyleSheet.create({
   headerTitleContainer: {
     flex: 1,
   },
-  headerTitle: { fontSize: 20, fontWeight: '800', color: '#1F2937' },
-  headerSubtitle: { fontSize: 13, color: '#6B7280', marginTop: 2 },
+  headerTitle: { fontSize: 20, fontWeight: '800', color: COLORS.gray800 },
+  headerSubtitle: { fontSize: 13, color: COLORS.gray500, marginTop: 2 },
 
   listContainer: { padding: 16, paddingBottom: 30 },
   
@@ -217,7 +217,7 @@ const styles = StyleSheet.create({
     padding: 16, 
     marginBottom: 14,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: COLORS.gray200,
     elevation: 1, 
     shadowColor: '#000', 
     shadowOffset: { width: 0, height: 1 }, 
@@ -225,22 +225,22 @@ const styles = StyleSheet.create({
     shadowRadius: 3 
   },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 },
-  incidentIdText: { fontSize: 15, fontWeight: '700', color: '#1F2937', flex: 1, marginRight: 8 },
-  zoneText: { fontSize: 12, color: '#4B5563', fontWeight: '600', marginTop: 2 },
-  dateText: { fontSize: 12, color: '#9CA3AF', marginTop: 4 },
+  incidentIdText: { fontSize: 15, fontWeight: '700', color: COLORS.gray800, flex: 1, marginRight: 8 },
+  zoneText: { fontSize: 12, color: COLORS.gray600, fontWeight: '600', marginTop: 2 },
+  dateText: { fontSize: 12, color: COLORS.gray400, marginTop: 4 },
   statusBadge: { backgroundColor: '#D1FAE5', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
   statusText: { color: '#065F46', fontSize: 11, fontWeight: '700', textTransform: 'uppercase' },
   
-  notesText: { fontSize: 14, color: '#4B5563', lineHeight: 20, marginBottom: 14 },
+  notesText: { fontSize: 14, color: COLORS.gray600, lineHeight: 20, marginBottom: 14 },
   
-  cardFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderTopWidth: 1, borderTopColor: '#F3F4F6', paddingTop: 12 },
+  cardFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderTopWidth: 1, borderTopColor: COLORS.gray100, paddingTop: 12 },
   geoRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  geoText: { fontSize: 12, color: '#4B5563', fontFamily: 'monospace' },
+  geoText: { fontSize: 12, color: COLORS.gray600, fontFamily: 'monospace' },
   
   photoAttachedBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#EFF6FF', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
   photoAttachedText: { fontSize: 11, color: COLORS.primary, fontWeight: '600' },
 
   emptyContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', marginTop: 60 },
-  emptyTitle: { fontSize: 16, fontWeight: '700', color: '#374151', marginTop: 12 },
-  emptySub: { fontSize: 13, color: '#6B7280', textAlign: 'center', marginTop: 4, paddingHorizontal: 30 }
+  emptyTitle: { fontSize: 16, fontWeight: '700', color: COLORS.gray700, marginTop: 12 },
+  emptySub: { fontSize: 13, color: COLORS.gray500, textAlign: 'center', marginTop: 4, paddingHorizontal: 30 }
 });

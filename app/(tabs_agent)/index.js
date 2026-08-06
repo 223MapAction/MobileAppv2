@@ -277,7 +277,7 @@ export default function AgentHomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F9FAFB', paddingHorizontal: width * 0.05, paddingTop: 10 },
+  container: { flex: 1, backgroundColor: COLORS.gray50, paddingHorizontal: width * 0.05, paddingTop: 10 },
   centered: { justifyContent: 'center', alignItems: 'center' },
   filterBar: { paddingVertical: 10, alignItems: 'center' },
   filterChip: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: COLORS.white, marginRight: 10, borderWidth: 1, borderColor: '#eee' },

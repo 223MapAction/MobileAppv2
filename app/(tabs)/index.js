@@ -333,7 +333,7 @@ const styles = StyleSheet.create({
   buttonIcon: { marginRight: 10 },
   buttonText: { color: COLORS.white, fontSize: 18, fontWeight: 'bold' },
   fabButton: { position: 'absolute', bottom: 30, right: 10, backgroundColor: COLORS.primary, width: 56, height: 56, borderRadius: 28, justifyContent: 'center', alignItems: 'center', elevation: 8, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 4 },
-  bannerContainer: { position: 'relative', backgroundColor: '#ffffff', borderRadius: 20, padding: 24, marginTop: 20, alignItems: 'center', borderWidth: 1, borderColor: '#f0f0f0', elevation: 2 },
+  bannerContainer: { position: 'relative', backgroundColor: COLORS.white, borderRadius: 20, padding: 24, marginTop: 20, alignItems: 'center', borderWidth: 1, borderColor: '#f0f0f0', elevation: 2 },
   closeButton: { position: 'absolute', top: 14, right: 14, backgroundColor: '#f5f6fa', borderRadius: 15, width: 30, height: 30, justifyContent: 'center', alignItems: 'center', zIndex: 10 },
   bannerImage: { width: width * 0.7, height: height * 0.22, marginBottom: 15 },
   bannerTitle: { fontSize: 20, fontWeight: '700', color: '#000000', marginBottom: 10, textAlign: 'center' },

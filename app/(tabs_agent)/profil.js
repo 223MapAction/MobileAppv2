@@ -219,7 +219,7 @@ export default function ProfilAgentScreen() {
         <Ionicons name={icon} size={20} color={color === "#FF4444" ? "#FF4444" : COLORS.primary} style={styles.menuIcon} />
         <Text style={[styles.menuItemText, { color: color }]}>{title}</Text>
       </View>
-      <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
+      <Ionicons name="chevron-forward" size={18} color={COLORS.gray400} />
     </TouchableOpacity>
   );
 
@@ -236,7 +236,7 @@ export default function ProfilAgentScreen() {
   if (!user) {
     return (
       <View style={styles.emptyContainer}>
-        <Ionicons name="person-circle-outline" size={100} color={styles.emptyIconColor || "#9CA3AF"} />
+        <Ionicons name="person-circle-outline" size={100} color={styles.emptyIconColor || COLORS.gray400} />
         <Text style={styles.emptyTitle}>Session introuvable</Text>
         <Text style={styles.emptySubtitle}>Veuillez vous reconnecter pour accéder à l'espace agent.</Text>
         <TouchableOpacity style={styles.loginButton} onPress={() => router.replace('/Authentification')}>
@@ -445,7 +445,7 @@ export default function ProfilAgentScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F9FAFB' },
+  container: { flex: 1, backgroundColor: COLORS.gray50 },
   centered: { justifyContent: 'center', alignItems: 'center' },
   scrollContent: { paddingBottom: 100 },
   headerSection: { alignItems: 'center', paddingVertical: height * 0.04 },
@@ -454,32 +454,32 @@ const styles = StyleSheet.create({
   avatarCircle: { width: 100, height: 100, borderRadius: 50, backgroundColor: COLORS.primary, justifyContent: 'center', alignItems: 'center', elevation: 2 },
   initialsText: { fontSize: 32, fontWeight: 'bold', color: 'white' },
   editBadge: { position: 'absolute', bottom: 0, right: 0, backgroundColor: COLORS.secondary, width: 30, height: 30, borderRadius: 15, justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: 'white', elevation: 3 },
-  userName: { fontSize: 20, fontWeight: 'bold', color: '#1F2937' },
+  userName: { fontSize: 20, fontWeight: 'bold', color: COLORS.gray800 },
   sectionContainer: { paddingHorizontal: 16, marginBottom: 20 },
-  sectionTitle: { fontSize: 13, color: '#9CA3AF', marginBottom: 8, paddingLeft: 4, fontWeight: '600' },
-  cardGroup: { backgroundColor: 'white', borderRadius: 12, borderWidth: 1, borderColor: '#E5E7EB', overflow: 'hidden', elevation: 1 },
+  sectionTitle: { fontSize: 13, color: COLORS.gray400, marginBottom: 8, paddingLeft: 4, fontWeight: '600' },
+  cardGroup: { backgroundColor: 'white', borderRadius: 12, borderWidth: 1, borderColor: COLORS.gray200, overflow: 'hidden', elevation: 1 },
   menuItem: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 16, paddingHorizontal: 16, backgroundColor: 'white' },
   menuLeft: { flexDirection: 'row', alignItems: 'center' },
   menuIcon: { marginRight: 12 },
   menuItemText: { fontSize: 16, fontWeight: '600' },
-  divider: { height: 1, backgroundColor: '#F3F4F6', marginHorizontal: 16 },
+  divider: { height: 1, backgroundColor: COLORS.gray100, marginHorizontal: 16 },
   emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 30 },
-  emptyTitle: { fontSize: 22, fontWeight: 'bold', color: '#1F2937', marginTop: 20 },
-  emptySubtitle: { fontSize: 14, color: '#9CA3AF', textAlign: 'center', marginTop: 10, marginBottom: 30 },
+  emptyTitle: { fontSize: 22, fontWeight: 'bold', color: COLORS.gray800, marginTop: 20 },
+  emptySubtitle: { fontSize: 14, color: COLORS.gray400, textAlign: 'center', marginTop: 10, marginBottom: 30 },
   loginButton: { backgroundColor: COLORS.primary, paddingHorizontal: 40, paddingVertical: 15, borderRadius: 30 },
   loginButtonText: { color: 'white', fontWeight: 'bold', fontSize: 16 },
   modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
   modalCard: { backgroundColor: 'white', padding: 25, borderTopLeftRadius: 25, borderTopRightRadius: 25 },
   modalHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20 },
-  modalTitle: { fontSize: 18, fontWeight: 'bold', color: '#1F2937' },
+  modalTitle: { fontSize: 18, fontWeight: 'bold', color: COLORS.gray800 },
   modalRow: { paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#F0F0F0' },
-  modalLabel: { fontSize: 11, color: '#9CA3AF', textTransform: 'uppercase', marginBottom: 4, fontWeight: '600' },
-  modalValue: { fontSize: 15, color: '#1F2937', fontWeight: '600' },
+  modalLabel: { fontSize: 11, color: COLORS.gray400, textTransform: 'uppercase', marginBottom: 4, fontWeight: '600' },
+  modalValue: { fontSize: 15, color: COLORS.gray800, fontWeight: '600' },
   modalCloseBtn: { marginTop: 10, padding: 15, borderRadius: 12, alignItems: 'center' },
   modalCloseBtnText: { color: 'white', fontWeight: 'bold', fontSize: 15 },
   inputGroup: { marginBottom: 15 },
-  inputLabel: { fontSize: 12, fontWeight: '600', color: '#9CA3AF', marginBottom: 6 },
+  inputLabel: { fontSize: 12, fontWeight: '600', color: COLORS.gray400, marginBottom: 6 },
   requiredAsterisk: { color: '#FF4444', fontWeight: 'bold' },
-  textInput: { borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 10, padding: 12, fontSize: 15, color: '#1F2937', backgroundColor: '#FAFAFA' },
+  textInput: { borderWidth: 1, borderColor: COLORS.gray200, borderRadius: 10, padding: 12, fontSize: 15, color: COLORS.gray800, backgroundColor: '#FAFAFA' },
   textInputDisabled: { backgroundColor: '#ECECEC', borderColor: '#DCDCDC', color: '#888888', opacity: 0.7 }
 });

@@ -129,7 +129,7 @@ const handleOpenNavigation = () => {
       case 'resolved':
         return { label: 'Résolu', bg: '#D1FAE5', text: '#10B981' };
       default:
-        return { label: etat || 'Inconnu', bg: '#F3F4F6', text: '#374151' };
+        return { label: etat || 'Inconnu', bg: COLORS.gray100, text: COLORS.gray700 };
     }
   };
 
@@ -145,7 +145,7 @@ const handleOpenNavigation = () => {
   const badge = getEtatBadge(incidentDetail.etat);
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#F9FAFB' }}>
+    <View style={{ flex: 1, backgroundColor: COLORS.gray50 }}>
       {/* 3. ADAPTATION DU PADDING INFERIEUR DU SCROLLVIEW POUR AJOUTER LA MARGE DU SAFE AREA + TAILLE DES BOUTONS */}
       <ScrollView 
         style={{ flex: 1 }} 
@@ -157,13 +157,13 @@ const handleOpenNavigation = () => {
             <Image source={{ uri: incidentDetail.photo }} style={styles.mainImage} />
           ) : (
             <View style={styles.noImageView}>
-              <Ionicons name="image-outline" size={60} color="#9CA3AF" />
+              <Ionicons name="image-outline" size={60} color={COLORS.gray400} />
               <Text style={styles.noImageText}>Aucune illustration photo</Text>
             </View>
           )}
           
           <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-            <Ionicons name="arrow-back" size={24} color="#1F2937" />
+            <Ionicons name="arrow-back" size={24} color={COLORS.gray800} />
           </TouchableOpacity>
         </View>
 
@@ -264,25 +264,25 @@ const handleOpenNavigation = () => {
 }
 
 const styles = StyleSheet.create({
-  centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F9FAFB' },
+  centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.gray50 },
   loadingText: { marginTop: 12, color: COLORS.gray1, fontSize: 14 },
-  imageContainer: { width: '100%', height: 260, backgroundColor: '#E5E7EB', position: 'relative' },
+  imageContainer: { width: '100%', height: 260, backgroundColor: COLORS.gray200, position: 'relative' },
   mainImage: { width: '100%', height: '100%', resizeMode: 'cover' },
-  noImageView: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#E5E7EB' },
-  noImageText: { marginTop: 8, color: '#6B7280', fontWeight: '500', fontSize: 14 },
+  noImageView: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.gray200 },
+  noImageText: { marginTop: 8, color: COLORS.gray500, fontWeight: '500', fontSize: 14 },
   backButton: { position: 'absolute', top: 50, left: 20, backgroundColor: 'white', padding: 10, borderRadius: 25, elevation: 4, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.15, shadowRadius: 3 },
   contentCard: { flex: 1, backgroundColor: 'white', borderTopLeftRadius: 24, borderTopRightRadius: 24, marginTop: -20, padding: 20, shadowColor: '#000', shadowOffset: { width: 0, height: -3 }, shadowOpacity: 0.05, shadowRadius: 5, elevation: 5 },
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 },
   title: { fontSize: 22, fontWeight: '800', color: COLORS.secondary, flex: 1, marginRight: 12 },
   statusBadge: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10 },
   statusText: { fontSize: 12, fontWeight: '700' },
-  metaBox: { backgroundColor: '#F3F4F6', padding: 14, borderRadius: 14, marginBottom: 20 },
+  metaBox: { backgroundColor: COLORS.gray100, padding: 14, borderRadius: 14, marginBottom: 20 },
   metaRow: { flexDirection: 'row', alignItems: 'center' },
-  metaText: { marginLeft: 8, fontSize: 14, color: '#374151' },
-  coordinatesText: { marginLeft: 8, fontSize: 12, color: '#6B7280', fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace' },
+  metaText: { marginLeft: 8, fontSize: 14, color: COLORS.gray700 },
+  coordinatesText: { marginLeft: 8, fontSize: 12, color: COLORS.gray500, fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace' },
   section: { marginBottom: 24 },
-  sectionTitle: { fontSize: 15, fontWeight: '700', color: '#1F2937', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 },
-  descriptionText: { fontSize: 15, color: '#4B5563', lineHeight: 22 },
+  sectionTitle: { fontSize: 15, fontWeight: '700', color: COLORS.gray800, marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 },
+  descriptionText: { fontSize: 15, color: COLORS.gray600, lineHeight: 22 },
   audioContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#EFF6FF', padding: 12, borderRadius: 16, borderWidth: 1, borderColor: '#BFDBFE' },
   audioPlayingBorder: { borderColor: COLORS.primary, backgroundColor: '#DBEAFE' },
   audioInfo: { marginLeft: 12, flex: 1 },
@@ -300,7 +300,7 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     // J'ai enlevé le paddingBottom fixe d'ici pour le mettre en ligne (inline style)
     borderTopWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: COLORS.gray200,
     justifyContent: 'space-between',
     alignItems: 'center',
     gap: 12

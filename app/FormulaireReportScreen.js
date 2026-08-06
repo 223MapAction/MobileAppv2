@@ -173,13 +173,13 @@ export default function FormulaireReportScreen() {
 
   return (
     <KeyboardAvoidingView 
-      style={{ flex: 1, backgroundColor: '#F9FAFB' }}
+      style={{ flex: 1, backgroundColor: COLORS.gray50 }}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       {/* HEADER DE LA PAGE */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.closeButton} onPress={() => router.back()}>
-          <Ionicons name="close" size={24} color="#374151" />
+          <Ionicons name="close" size={24} color={COLORS.gray700} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Nouveau Rapport Terrain</Text>
         <View style={styles.headerSpacer} />
@@ -236,8 +236,8 @@ export default function FormulaireReportScreen() {
               </TouchableOpacity>
 
               <TouchableOpacity style={[styles.photoSelectorBtn, styles.photoSelectorBtnOutline]} onPress={() => handlePickImage(false)}>
-                <Ionicons name="image-outline" size={26} color="#4B5563" />
-                <Text style={[styles.photoBtnText, { color: '#4B5563' }]}>Galerie</Text>
+                <Ionicons name="image-outline" size={26} color={COLORS.gray600} />
+                <Text style={[styles.photoBtnText, { color: COLORS.gray600 }]}>Galerie</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -253,7 +253,7 @@ export default function FormulaireReportScreen() {
           <TextInput
             style={styles.textArea}
             placeholder="Décrivez précisément les faits constatés, l'état d'avancement ou les mesures d'urgence prises sur place..."
-            placeholderTextColor="#9CA3AF"
+            placeholderTextColor={COLORS.gray400}
             multiline
             numberOfLines={6}
             value={notes}
@@ -284,10 +284,10 @@ export default function FormulaireReportScreen() {
 }
 
 const styles = StyleSheet.create({
-  centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F9FAFB', padding: 20 },
+  centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.gray50, padding: 20 },
   errorText: { color: '#EF4444', fontWeight: '700', fontSize: 15, marginTop: 12, textAlign: 'center' },
-  errorReturnBtn: { marginTop: 20, paddingVertical: 12, paddingHorizontal: 20, backgroundColor: '#E5E7EB', borderRadius: 10 },
-  errorReturnBtnText: { color: '#374151', fontWeight: '600', fontSize: 14 },
+  errorReturnBtn: { marginTop: 20, paddingVertical: 12, paddingHorizontal: 20, backgroundColor: COLORS.gray200, borderRadius: 10 },
+  errorReturnBtnText: { color: COLORS.gray700, fontWeight: '600', fontSize: 14 },
 
   header: {
     flexDirection: 'row',
@@ -298,37 +298,37 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
     backgroundColor: 'white',
     borderBottomWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: COLORS.gray200,
   },
-  closeButton: { padding: 8, borderRadius: 20, backgroundColor: '#F3F4F6' },
-  headerTitle: { fontSize: 16, fontWeight: '700', color: '#1F2937' },
+  closeButton: { padding: 8, borderRadius: 20, backgroundColor: COLORS.gray100 },
+  headerTitle: { fontSize: 16, fontWeight: '700', color: COLORS.gray800 },
   headerSpacer: { width: 40 },
   
   scrollContainer: { padding: 16, paddingBottom: 40 },
   
   card: { backgroundColor: 'white', borderRadius: 16, padding: 16, marginBottom: 16, elevation: 1, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 3 },
   cardHeaderRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 14, gap: 8 },
-  cardTitle: { fontSize: 14, fontWeight: '700', color: '#374151', textTransform: 'uppercase', letterSpacing: 0.3 },
+  cardTitle: { fontSize: 14, fontWeight: '700', color: COLORS.gray700, textTransform: 'uppercase', letterSpacing: 0.3 },
   
   geoLoadingView: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8 },
-  geoSubText: { fontSize: 13, color: '#6B7280' },
+  geoSubText: { fontSize: 13, color: COLORS.gray500 },
   geoSuccessView: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  geoCoordinatesText: { fontSize: 13, color: '#1F2937', fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace', lineHeight: 18 },
+  geoCoordinatesText: { fontSize: 13, color: COLORS.gray800, fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace', lineHeight: 18 },
   refreshGeoBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, padding: 6, borderRadius: 8, backgroundColor: '#EFF6FF' },
   refreshGeoText: { fontSize: 12, fontWeight: '600', color: COLORS.primary },
 
   photoActionRow: { flexDirection: 'row', gap: 12 },
   photoSelectorBtn: { flex: 1, height: 90, borderRadius: 12, backgroundColor: '#EFF6FF', justifyContent: 'center', alignItems: 'center', gap: 6, borderWidth: 1, borderColor: '#BFDBFE', borderStyle: 'dashed' },
-  photoSelectorBtnOutline: { backgroundColor: '#F3F4F6', borderColor: '#D1D5DB' },
+  photoSelectorBtnOutline: { backgroundColor: COLORS.gray100, borderColor: COLORS.gray300 },
   photoBtnText: { fontSize: 12, fontWeight: '700', color: COLORS.primary },
   imagePreviewContainer: { width: '100%', height: 180, borderRadius: 12, overflow: 'hidden', position: 'relative' },
   previewImage: { width: '100%', height: '100%', resizeMode: 'cover' },
   deletePhotoBadge: { position: 'absolute', top: 10, right: 10, backgroundColor: '#EF4444', padding: 8, borderRadius: 20 },
 
-  textArea: { backgroundColor: '#F9FAFB', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 12, padding: 12, fontSize: 14, color: '#1F2937', minHeight: 120 },
+  textArea: { backgroundColor: COLORS.gray50, borderWidth: 1, borderColor: COLORS.gray200, borderRadius: 12, padding: 12, fontSize: 14, color: COLORS.gray800, minHeight: 120 },
 
   submitButton: { backgroundColor: COLORS.primary, paddingVertical: 15, borderRadius: 14, marginTop: 10, elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 3 },
-  submitButtonDisabled: { backgroundColor: '#9CA3AF', opacity: 0.7 },
+  submitButtonDisabled: { backgroundColor: COLORS.gray400, opacity: 0.7 },
   submitBtnContent: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 10 },
   submitButtonText: { color: 'white', fontSize: 15, fontWeight: '700' }
 });

@@ -192,7 +192,7 @@ export default function ContactUsScreen() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#fff' },
+  safeArea: { flex: 1, backgroundColor: COLORS.white },
   container: { flex: 1 },
   
   headerRow: { 
@@ -201,7 +201,7 @@ const styles = StyleSheet.create({
     alignItems: 'center', 
     paddingHorizontal: 10,
     paddingVertical: 15,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.white,
     borderBottomWidth: 1,
     borderBottomColor: '#f0f0f0',
     zIndex: 10,
@@ -220,18 +220,18 @@ const styles = StyleSheet.create({
     paddingBottom: 40 
   },
   infoBox: {
-    backgroundColor: '#F9FAFB',
+    backgroundColor: COLORS.gray50,
     padding: 15,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: COLORS.gray200,
     alignItems: 'center',
     marginBottom: 25,
   },
   infoText: {
     fontSize: 14,
     lineHeight: 20,
-    color: '#4B5563',
+    color: COLORS.gray600,
     textAlign: 'center',
   },
   inputGroup: {
@@ -249,24 +249,24 @@ const styles = StyleSheet.create({
   },
   textInput: {
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: COLORS.gray200,
     borderRadius: 10,
     padding: 14,
     fontSize: 15,
-    color: '#1F2937',
+    color: COLORS.gray800,
     backgroundColor: '#FAFAFA',
   },
   textInputDisabled: {
-    backgroundColor: '#E5E7EB',
-    borderColor: '#D1D5DB',
-    color: '#6B7280',
+    backgroundColor: COLORS.gray200,
+    borderColor: COLORS.gray300,
+    color: COLORS.gray500,
   },
   textArea: {
     height: 120,
   },
   hintText: {
     fontSize: 11,
-    color: '#9CA3AF',
+    color: COLORS.gray400,
     marginTop: 4,
     fontStyle: 'italic',
   },
@@ -281,7 +281,7 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   submitButtonDisabled: {
-    backgroundColor: '#9CA3AF',
+    backgroundColor: COLORS.gray400,
     elevation: 0,
   },
   submitButtonText: {

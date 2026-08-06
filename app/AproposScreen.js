@@ -67,7 +67,7 @@ export default function AboutScreen() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#fff' },
+  safeArea: { flex: 1, backgroundColor: COLORS.white },
   
   // Header bloqué
   headerRow: { 
@@ -76,7 +76,7 @@ const styles = StyleSheet.create({
     alignItems: 'center', 
     paddingHorizontal: 10,
     paddingVertical: 15,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.white,
     borderBottomWidth: 1,
     borderBottomColor: '#f0f0f0',
     zIndex: 10,

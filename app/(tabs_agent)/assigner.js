@@ -212,10 +212,10 @@ const styles = StyleSheet.create({
     paddingTop: Platform.OS === 'ios' ? 50 : 20,
     paddingBottom: 16,
     borderBottomWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: COLORS.gray200,
   },
   uxHeaderTitle: { fontSize: 20, fontWeight: '800', color: COLORS.secondary },
-  uxHeaderSubtitle: { fontSize: 12, color: '#6B7280', marginTop: 1 },
+  uxHeaderSubtitle: { fontSize: 12, color: COLORS.gray500, marginTop: 1 },
   historyCircleBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -227,7 +227,7 @@ const styles = StyleSheet.create({
     borderColor: '#BFDBFE'
   },
   historyBtnLabel: { color: COLORS.primary, fontSize: 12, fontWeight: '700' },
-  container: { flex: 1, backgroundColor: '#F9FAFB' },
+  container: { flex: 1, backgroundColor: COLORS.gray50 },
   listPadding: { padding: 15, paddingBottom: 30 },
   centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   loadingText: { marginTop: 12, color: COLORS.gray1, fontSize: 14, fontWeight: '500' },
@@ -239,13 +239,13 @@ const styles = StyleSheet.create({
   cardBody: { paddingBottom: 8 },
   infoRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 6 },
   iconWidthFix: { width: 22, textAlign: 'center' },
-  infoText: { fontSize: 13, color: '#4B5563' },
+  infoText: { fontSize: 13, color: COLORS.gray600 },
   cardFooter: { 
     flexDirection: 'row', 
     justifyContent: 'space-between', 
     alignItems: 'center', 
     borderTopWidth: 1, 
-    borderTopColor: '#F3F4F6', 
+    borderTopColor: COLORS.gray100,
     paddingTop: 12, 
     marginTop: 8 
   },
