@@ -3,76 +3,33 @@ import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Dimensions, Image, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { read_user, update_user } from '../../api/user';
+import { delete_user, update_user } from '../../api/user';
 import { COLORS } from '../../Composants/themeConfig';
+import { useProfileController } from '../../hooks/useProfileController';
 import { clearAuthUser, getAuthToken, getAuthUser, saveAuthUser } from '../../storage/authStorageAgent';
 
 const { width, height } = Dimensions.get('window');
 
 export default function ProfilAgentScreen() {
-  const [user, setUser] = useState(null);
-  const [isLoadingUser, setIsLoadingUser] = useState(true);
+  const { user, setUser, isLoadingUser, setIsLoadingUser, editForm, setEditForm, refreshProfile } =
+    useProfileController({
+      getLocalUser: getAuthUser,
+      getToken: getAuthToken,
+      persistUser: (freshUserData, previousLocal) => saveAuthUser({ ...previousLocal, ...freshUserData }),
+      onError: (e) => console.error("Erreur lors du rafraîchissement du profil agent :", e),
+    });
   const [isPersonalInfoOpen, setIsPersonalInfoOpen] = useState(false);
-  
+
   // --- ÉTATS POUR L'ÉDITION ---
   const [isEditing, setIsEditing] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
-  const [editForm, setEditForm] = useState({ first_name: '', last_name: '', phone: '', email: '' });
 
   const router = useRouter();
-
-  // Fonction de chargement / rafraîchissement des données de l'agent
-  const rafraichirProfilAgent = async () => {
-    try {
-      const localAgent = await getAuthUser().catch(() => null);
-      
-      if (localAgent) {
-        const token = await getAuthToken().catch(() => null);
-        const agentId = localAgent.id || localAgent.user_id || localAgent.user?.id;
-        
-        if (agentId && token) {
-          const freshUserData = await read_user(agentId, token).catch((e) => {
-            console.error("Échec récupération API utilisateur, repli local.", e);
-            return null;
-          }); 
-          
-          if (freshUserData) {
-            const updatedAgentObj = { ...localAgent, ...freshUserData };
-            await saveAuthUser(updatedAgentObj).catch(() => null); 
-            
-            setUser(updatedAgentObj);
-            setEditForm({
-              first_name: freshUserData.first_name || '',
-              last_name: freshUserData.last_name || '',
-              phone: freshUserData.phone || '',
-              email: freshUserData.email || '',
-            });
-            return;
-          }
-        }
-      }
-      
-      // Fallback sur les données locales si l'API est injoignable
-      if (localAgent) {
-        setUser(localAgent);
-        setEditForm({
-          first_name: localAgent.first_name || '',
-          last_name: localAgent.last_name || '',
-          phone: localAgent.phone || '',
-          email: localAgent.email || '',
-        });
-      } else {
-        setUser(null);
-      }
-    } catch (error) {
-      console.error("Erreur lors du rafraîchissement du profil agent :", error);
-    }
-  };
 
   useEffect(() => {
     let isMounted = true;
     const initLoad = async () => {
-      await rafraichirProfilAgent();
+      await refreshProfile();
       if (isMounted) setIsLoadingUser(false);
     };
     initLoad();
@@ -115,7 +72,7 @@ export default function ProfilAgentScreen() {
       if (!agentId || !token) throw new Error("Identifiants ou jeton manquants.");
 
       await update_user(agentId, { avatar: imageUri }, token);
-      await rafraichirProfilAgent();
+      await refreshProfile();
       
       Alert.alert("Profil mis à jour", "Votre nouvelle photo de profil a été enregistrée avec succès.");
     } catch (error) {
@@ -145,7 +102,7 @@ export default function ProfilAgentScreen() {
       if (!agentId || !token) throw new Error("Jeton ou ID utilisateur expiré.");
 
       await update_user(agentId, editForm, token);
-      await rafraichirProfilAgent();
+      await refreshProfile();
       
       setIsEditing(false);
       setIsPersonalInfoOpen(false); 
@@ -193,6 +150,12 @@ export default function ProfilAgentScreen() {
           style: "destructive",
           onPress: async () => {
             try {
+              const token = await getAuthToken();
+              const agentId = user?.id || user?.user_id || user?.user?.id;
+
+              // Appel API pour supprimer le compte côté backend
+              await delete_user(agentId, token);
+
               await clearAuthUser().catch(() => null);
               setUser(null);
               router.replace('/Authentification');

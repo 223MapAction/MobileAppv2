@@ -4,8 +4,9 @@ import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Dimensions, Image, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { delete_user, read_user, update_user } from '../../api/user';
+import { delete_user, update_user } from '../../api/user';
 import { COLORS } from '../../Composants/themeConfig';
+import { useProfileController } from '../../hooks/useProfileController';
 import { clearAuthToken, clearAuthUser, getAccessToken, getAuthUser, setAuthUser } from '../../storage/authStorage';
 
 const { height } = Dimensions.get('window');
@@ -24,56 +25,23 @@ const MenuItem = ({ icon, title, color = COLORS.primary, onPress }) => (
 
 export default function ProfilScreen() {
   const { signOut } = useAuth();
-  const [user, setUser] = useState(null);
-  const [isLoadingUser, setIsLoadingUser] = useState(true);
+  const { user, setUser, isLoadingUser, setIsLoadingUser, editForm, setEditForm, refreshProfile } =
+    useProfileController({
+      getLocalUser: getAuthUser,
+      getToken: getAccessToken,
+      persistUser: (freshUserData) => setAuthUser(freshUserData),
+      onError: () => {}, // Échec silencieux du rafraîchissement automatique en arrière-plan
+    });
   const [isPersonalInfoOpen, setIsPersonalInfoOpen] = useState(false);
-  
   const [isEditing, setIsEditing] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
-  const [editForm, setEditForm] = useState({ first_name: '', last_name: '', phone: '', email: '' });
 
   const router = useRouter();
-
-  const rafraichirProfilUtilisateur = async () => {
-    try {
-      const localUser = await getAuthUser();
-      
-      if (localUser) {
-        const token = await getAccessToken();
-
-        const freshUserData = await read_user(localUser.id, token);
-        
-        if (freshUserData) {
-          await setAuthUser(freshUserData); 
-          setUser(freshUserData);
-          setEditForm({
-            first_name: freshUserData.first_name || '',
-            last_name: freshUserData.last_name || '',
-            phone: freshUserData.phone || '',
-            email: freshUserData.email || '',
-          });
-          return;
-        }
-      }
-      
-      if (localUser) {
-        setUser(localUser);
-        setEditForm({
-          first_name: localUser.first_name || '',
-          last_name: localUser.last_name || '',
-          phone: localUser.phone || '',
-          email: localUser.email || '',
-        });
-      }
-    } catch (error) {
-      // Échec silencieux du rafraîchissement automatique en arrière-plan
-    }
-  };
 
   useEffect(() => {
     let isMounted = true;
     const initLoad = async () => {
-      await rafraichirProfilUtilisateur();
+      await refreshProfile();
       if (isMounted) setIsLoadingUser(false);
     };
     initLoad();
@@ -106,7 +74,7 @@ export default function ProfilScreen() {
       const token = await getAccessToken();
 
       await update_user(user.id, { avatar: imageUri }, token);
-      await rafraichirProfilUtilisateur();
+      await refreshProfile();
       
       Alert.alert("Succès", "Votre photo de profil a été mise à jour !");
     } catch (error) {
@@ -127,7 +95,7 @@ export default function ProfilScreen() {
       const token = await getAccessToken();
 
       await update_user(user.id, editForm, token);
-      await rafraichirProfilUtilisateur();
+      await refreshProfile();
       
       setIsEditing(false);
       setIsPersonalInfoOpen(false); 
