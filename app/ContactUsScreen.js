@@ -17,7 +17,7 @@ import {
 import { apiEndPoint } from '../api/apiUrl'; // Ajuste le chemin relatif si nécessaire
 import { COLORS } from '../Composants/themeConfig';
 import ScreenHeader from '../Composants/ScreenHeader';
-import { getAuthToken, getAuthUser } from '../storage/authStorage';
+import { getAccessToken, getAuthUser } from '../storage/authStorage';
 
 export default function ContactUsScreen() {
   const router = useRouter();
@@ -55,9 +55,8 @@ export default function ContactUsScreen() {
     setIsSending(true);
     try {
       // Récupération et extraction du token de manière sécurisée (comme pour les notifications)
-      const tokenData = await getAuthToken().catch(() => null);
-      const token = tokenData?.access || tokenData;
-      
+      const token = await getAccessToken().catch(() => null);
+
       const headers = {
         'Content-Type': 'application/json',
         'Accept': 'application/json',

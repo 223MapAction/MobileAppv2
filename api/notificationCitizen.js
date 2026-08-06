@@ -1,4 +1,4 @@
-import { getAuthToken } from "../storage/authStorage";
+import { getAccessToken } from "../storage/authStorage";
 import { apiEndPoint } from "./apiUrl";
 
 /**
@@ -6,8 +6,7 @@ import { apiEndPoint } from "./apiUrl";
  */
 export async function fetchNotifications() {
   try {
-    const tokenData = await getAuthToken();
-    const token = tokenData?.access || tokenData;
+    const token = await getAccessToken();
 
     if (!token) {
       throw new Error("No authentication token found");

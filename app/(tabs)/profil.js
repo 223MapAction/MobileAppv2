@@ -6,9 +6,21 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Dimensions, Image, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { delete_user, read_user, update_user } from '../../api/user';
 import { COLORS } from '../../Composants/themeConfig';
-import { clearAuthToken, clearAuthUser, getAuthToken, getAuthUser, setAuthUser } from '../../storage/authStorage';
+import { clearAuthToken, clearAuthUser, getAccessToken, getAuthUser, setAuthUser } from '../../storage/authStorage';
 
 const { height } = Dimensions.get('window');
+
+const MenuItem = ({ icon, title, color = COLORS.primary, onPress }) => (
+  <TouchableOpacity style={styles.menuItem} onPress={onPress} activeOpacity={0.7}>
+    <View style={styles.menuLeft}>
+      <Ionicons name={icon} size={22} color={color} />
+      <Text style={[styles.menuText, { color: color === COLORS.primary ? COLORS.secondary : color }]}>
+        {title}
+      </Text>
+    </View>
+    <Ionicons name="chevron-forward" size={20} color={COLORS.gray1} />
+  </TouchableOpacity>
+);
 
 export default function ProfilScreen() {
   const { signOut } = useAuth();
@@ -27,10 +39,9 @@ export default function ProfilScreen() {
       const localUser = await getAuthUser();
       
       if (localUser) {
-        const tokenData = await getAuthToken();
-        const token = tokenData?.access || tokenData;
-        
-        const freshUserData = await read_user(localUser.id, token); 
+        const token = await getAccessToken();
+
+        const freshUserData = await read_user(localUser.id, token);
         
         if (freshUserData) {
           await setAuthUser(freshUserData); 
@@ -92,9 +103,8 @@ export default function ProfilScreen() {
   const handleSaveAvatar = async (imageUri) => {
     setIsUpdating(true);
     try {
-      const tokenData = await getAuthToken();
-      const token = tokenData?.access || tokenData;
-      
+      const token = await getAccessToken();
+
       await update_user(user.id, { avatar: imageUri }, token);
       await rafraichirProfilUtilisateur();
       
@@ -114,9 +124,8 @@ export default function ProfilScreen() {
 
     setIsUpdating(true);
     try {
-      const tokenData = await getAuthToken();
-      const token = tokenData?.access || tokenData;
-      
+      const token = await getAccessToken();
+
       await update_user(user.id, editForm, token);
       await rafraichirProfilUtilisateur();
       
@@ -180,8 +189,7 @@ const handleLogout = () => {
               if (typeof signOut === 'function') {
                 await signOut().catch(() => null);
               }
-              const tokenData = await getAuthToken();
-              const token = tokenData?.access || tokenData;
+              const token = await getAccessToken();
 
               // Appel API pour supprimer le compte côté backend
               await delete_user(user.id, token);
@@ -212,18 +220,6 @@ const handleLogout = () => {
   const fullName = `${firstName} ${lastName}`.trim() || user?.email || 'Utilisateur';
   const avatarUrl = user?.avatar || null;
   const initials = `${firstName?.[0] || ''}${lastName?.[0] || ''}`.toUpperCase() || 'U';
-
-  const MenuItem = ({ icon, title, color = COLORS.primary, onPress }) => (
-    <TouchableOpacity style={styles.menuItem} onPress={onPress} activeOpacity={0.7}>
-      <View style={styles.menuLeft}>
-        <Ionicons name={icon} size={22} color={color} />
-        <Text style={[styles.menuText, { color: color === COLORS.primary ? COLORS.secondary : color }]}>
-          {title}
-        </Text>
-      </View>
-      <Ionicons name="chevron-forward" size={20} color={COLORS.gray1} />
-    </TouchableOpacity>
-  );
 
   if (isLoadingUser) {
     return (

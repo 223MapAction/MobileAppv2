@@ -6,7 +6,7 @@ import { ActivityIndicator, Dimensions, ScrollView, StyleSheet, Text, TouchableO
 import { getIncidentByIdOnline } from '../api/incidents';
 import { OfflineManager } from '../api/offlineManager';
 import { COLORS } from '../Composants/themeConfig';
-import { getAuthToken } from '../storage/authStorage';
+import { getAccessToken } from '../storage/authStorage';
 
 const { width } = Dimensions.get('window');
 
@@ -28,8 +28,7 @@ export default function DetailIncidentScreen() {
           );
           setIncident(found);
         } else {
-          const tokenData = await getAuthToken();
-          const token = tokenData?.access || tokenData;
+          const token = await getAccessToken();
 
           if (token) {
             const result = await getIncidentByIdOnline(id, token);

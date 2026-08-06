@@ -8,7 +8,7 @@ import { OfflineManager } from '../../api/offlineManager';
 import IMG_LOGIN from "../../assets/images/imageHomeLogin.png";
 import IMG1 from "../../assets/onboarding2.png";
 import { COLORS } from '../../Composants/themeConfig';
-import { getAuthToken, getAuthUser } from '../../storage/authStorage';
+import { getAccessToken, getAuthUser } from '../../storage/authStorage';
 
 const { width, height } = Dimensions.get('window');
 
@@ -33,11 +33,10 @@ export default function HomeScreen() {
       const initHome = async () => {
         setLoading(true);
         try {
-          const [userData, tokenData] = await Promise.all([
+          const [userData, token] = await Promise.all([
             getAuthUser(),
-            getAuthToken()
+            getAccessToken()
           ]);
-          let token = tokenData?.access || tokenData;
 
           // Fonction utilitaire pour extraire proprement le tableau d'incidents
           const extraireIncidents = (apiResult) => {
@@ -66,9 +65,9 @@ export default function HomeScreen() {
 
             while (currentAttempt < maxAttempts && (!userVerif || !tokenVerif)) {
               await new Promise(resolve => setTimeout(resolve, 100));
-              const [u, t] = await Promise.all([getAuthUser(), getAuthToken()]);
+              const [u, t] = await Promise.all([getAuthUser(), getAccessToken()]);
               userVerif = u;
-              tokenVerif = t?.access || t;
+              tokenVerif = t;
               currentAttempt++;
             }
 

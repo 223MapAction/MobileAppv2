@@ -19,6 +19,13 @@ export async function getAuthToken() {
   return raw ? JSON.parse(raw) : null;
 }
 
+// getAuthToken() renvoie {access, refresh} (ou null) — ce helper renvoie
+// directement le token d'accès utilisable dans un header Authorization.
+export async function getAccessToken() {
+  const tokens = await getAuthToken();
+  return tokens?.access || tokens;
+}
+
 export async function setAuthToken(tokens) {
   await AsyncStorage.setItem(AUTH_TOKEN_KEY, JSON.stringify(tokens));
 }

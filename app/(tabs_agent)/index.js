@@ -43,7 +43,7 @@ export default function AgentHomeScreen() {
           ]);
 
           setAgent(agentData);
-          const token = tokenData?.access || tokenData;
+          const token = tokenData;
 
           // Extraction sécurisée de l'ID de l'agent
           const agentId = agentData?.id || agentData?.user_id || agentData?.user?.id || null;
