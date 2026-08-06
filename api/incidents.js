@@ -11,7 +11,7 @@ function makeid(length) {
     return result;
 }
 
-export const envoyerIncident = async (payload) => {
+export const envoyerIncident = async (payload, token) => {
   try {
     let formdata = new FormData();
     // On extrait photo, audio ET video du payload
@@ -57,12 +57,17 @@ export const envoyerIncident = async (payload) => {
       }
     });
 
+    const headers = {
+      'Accept': 'application/json',
+    };
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
     const response = await fetch(`${apiEndPoint}/incident/`, {
       method: 'POST',
       body: formdata,
-      headers: {
-        'Accept': 'application/json',
-      },
+      headers,
     });
 
     const responseText = await response.text();
