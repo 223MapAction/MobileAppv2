@@ -1,14 +1,12 @@
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import NetInfo from '@react-native-community/netinfo';
 import { useRoute } from '@react-navigation/native';
-import { getZoneFromOSM } from '../services/general';
 
-import { Audio } from 'expo-av';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
 import * as VideoThumbnails from 'expo-video-thumbnails';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ActivityIndicator, Alert, Dimensions, Image, ScrollView,
   StyleSheet, Text, TextInput, TouchableOpacity, View
@@ -16,6 +14,8 @@ import {
 import { envoyerIncident } from "../api/incidents";
 import { OfflineManager } from '../api/offlineManager';
 import { COLORS } from '../Composants/themeConfig';
+import { useAudioRecorder } from '../hooks/useAudioRecorder';
+import { useIncidentLocation } from '../hooks/useIncidentLocation';
 import { getAuthUser } from '../storage/authStorage';
 
 const { width } = Dimensions.get('window');
@@ -27,32 +27,25 @@ export default function SignalerIncidentScreen() {
 
   // ÉTATS GÉNÉRAUX
   const [description, setDescription] = useState('');
-  const [location, setLocation] = useState(null);
-  const [loadingLocation, setLoadingLocation] = useState(true);
-  const [zoneName, setZoneName] = useState('Bamako');
-  const [locationError, setLocationError] = useState(false);
   const [sending, setSending] = useState(false);
   const [user, setUser] = useState(null);
+
+  const { location, loadingLocation, locationError, zoneName, obtenirPosition } =
+    useIncidentLocation({ accuracy: Location.Accuracy.Balanced });
+
+  const { recording, audioUri, audioLevels, startRecording, stopRecording, deleteAudio } =
+    useAudioRecorder({
+      idleLevels: [1, 1, 1, 1, 1],
+      normalizeLevel: (metering) => Math.max(4, Math.min(24, (metering + 160) / 6)),
+      maxLevelsCount: 20,
+      startErrorMessage: "Impossible de démarrer l'enregistrement audio.",
+      stopErrorLogPrefix: 'Erreur stop audio:',
+    });
 
   // ÉTATS MULTIMÉDIA
   const [photoUri, setPhotoUri] = useState(initialPhoto);
   const [videoUri, setVideoUri] = useState(null);
   const [videoThumbnail, setVideoThumbnail] = useState(null);
-  const [audioUri, setAudioUri] = useState(null);
-  const [recording, setRecording] = useState(null);
-  const [audioLevels, setAudioLevels] = useState([1, 1, 1, 1, 1]); 
-
-  // REFS POUR LE TIMEOUT AUDIO
-  const audioTimerRef = useRef(null);
-  const recordingRef = useRef(null);
-
-  // Synchroniser la ref avec l'état de l'enregistrement
-  useEffect(() => {
-    recordingRef.current = recording;
-    return () => {
-      if (audioTimerRef.current) clearInterval(audioTimerRef.current);
-    };
-  }, [recording]);
 
   // Charger les infos de l'utilisateur connecté
   useEffect(() => {
@@ -67,92 +60,6 @@ export default function SignalerIncidentScreen() {
     loadUser();
   }, []);
 
-  // Gestion de la géolocalisation
-  const obtenirPosition = async () => {
-    setLoadingLocation(true);
-    setLocationError(false);
-    
-    try {
-      const serviceEnabled = await Location.hasServicesEnabledAsync();
-      if (!serviceEnabled) {
-        setLocationError(true);
-        setLoadingLocation(false);
-        return;
-      }
-
-      let { status } = await Location.getForegroundPermissionsAsync();
-      
-      if (status !== 'granted') {
-        const request = await Location.requestForegroundPermissionsAsync();
-        status = request.status;
-      }
-
-      if (status !== 'granted') {
-        setLocationError(true);
-        setLoadingLocation(false);
-        return;
-      }
-
-      // 1. Récupération native des coordonnées GPS (Fonctionne Hors-Ligne)
-      let currentLocation = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced,
-      });
-
-      let addressData = null;
-
-      // 2. Tentative de reverse geocoding (nécessite Internet)
-      try {
-        let address = await Location.reverseGeocodeAsync({
-          latitude: currentLocation.coords.latitude,
-          longitude: currentLocation.coords.longitude,
-        });
-        if (address && address.length > 0) {
-          addressData = address[0];
-        }
-      } catch (geocodeErr) {
-        // En mode hors-ligne, reverseGeocodeAsync va échouer silencieusement ici
-        console.log("Impossible de récupérer l'adresse (hors-ligne)");
-      }
-
-      // Mise à jour de la position GPS avec ou sans adresse
-      setLocation({ 
-        coords: currentLocation.coords, 
-        address: addressData 
-      });
-
-      // 3. Tentative de récupération de la zone via OSM
-      let zoneTrouvee = false;
-      try {
-        const zoneRecuperee = await getZoneFromOSM(
-          currentLocation.coords.latitude,
-          currentLocation.coords.longitude
-        );
-        if (zoneRecuperee) {
-          setZoneName(zoneRecuperee);
-          zoneTrouvee = true;
-        }
-      } catch (apiError) {
-        // Échec API / réseau
-      }
-
-      // Fallback si OSM n'a rien renvoyé
-      if (!zoneTrouvee) {
-        if (addressData?.city) {
-          setZoneName(addressData.city);
-        } else {
-          // Valeur de secours quand il n'y a pas de réseau
-          setZoneName("Zone non récupérée");
-        }
-      }
-
-    } catch (error) {
-      setLocationError(true);
-    } finally {
-      setLoadingLocation(false);
-    }
-  };
-
-  
   useEffect(() => {
     obtenirPosition();
   }, []);
@@ -175,16 +82,14 @@ export default function SignalerIncidentScreen() {
       });
 
       if (!result.canceled) {
-        const sourceUri = result.assets[0].uri;
+        const asset = result.assets[0];
+        const sourceUri = asset.uri;
+        const durationMs = asset.duration;
 
-        const playbackObject = new Audio.Sound();
-        const videoStatus = await playbackObject.loadAsync({ uri: sourceUri });
-        await playbackObject.unloadAsync();
-
-        if (videoStatus.durationMillis && videoStatus.durationMillis > 10500) {
+        if (durationMs && durationMs > 10500) {
           Alert.alert(
             "Vidéo trop longue",
-            `Votre vidéo fait ${(videoStatus.durationMillis / 1000).toFixed(1)}s. La durée maximale autorisée est de 10 secondes. Veuillez recommencer.`
+            `Votre vidéo fait ${(durationMs / 1000).toFixed(1)}s. La durée maximale autorisée est de 10 secondes. Veuillez recommencer.`
           );
           return;
         }
@@ -203,74 +108,6 @@ export default function SignalerIncidentScreen() {
     } catch (err) {
       Alert.alert("Erreur", "Impossible d'enregistrer la vidéo.");
     }
-  };
-
-  // Audio : Démarrer l'enregistrement
-  async function startRecording() {
-    try {
-      const permission = await Audio.requestPermissionsAsync();
-      if (permission.status === "granted") {
-        await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true });
-        
-        const recordingOptions = {
-          ...Audio.RecordingOptionsPresets.HIGH_QUALITY,
-          android: {
-            ...Audio.RecordingOptionsPresets.HIGH_QUALITY.android,
-            meteringEnabled: true,
-          },
-          ios: {
-            ...Audio.RecordingOptionsPresets.HIGH_QUALITY.ios,
-            meteringEnabled: true,
-          },
-        };
-
-        const { recording: newRecording } = await Audio.Recording.createAsync(
-          recordingOptions,
-          (status) => {
-            if (status.metering !== undefined) {
-              const normalizedLevel = Math.max(4, Math.min(24, (status.metering + 160) / 6));
-              setAudioLevels((prev) => {
-                const newLevels = [...prev, normalizedLevel];
-                if (newLevels.length > 20) newLevels.shift();
-                return newLevels;
-              });
-            }
-
-            if (status.durationMillis >= 10000) {
-              stopRecording();
-            }
-          },
-          100
-        );
-        
-        setRecording(newRecording);
-      }
-    } catch (err) {
-      Alert.alert('Erreur', "Impossible de démarrer l'enregistrement audio.");
-    }
-  }
-
-  // Audio : Arrêter l'enregistrement
-  async function stopRecording() {
-    const currentRecording = recordingRef.current || recording;
-    if (!currentRecording) return;
-
-    try {
-      setRecording(null);
-      await currentRecording.stopAndUnloadAsync();
-      const uri = currentRecording.getURI();
-      setAudioUri(uri);
-      setAudioLevels([1, 1, 1, 1, 1]);
-    } catch (error) {
-      console.error("Erreur stop audio:", error);
-      setRecording(null);
-    }
-  }
-
-  // Audio : Supprimer l'audio enregistré
-  const handleDeleteAudio = () => {
-    setAudioUri(null);
-    setAudioLevels([1, 1, 1, 1, 1]);
   };
 
   // Soumission de l'incident
@@ -435,7 +272,7 @@ export default function SignalerIncidentScreen() {
                   <Ionicons name="checkmark-circle" size={20} color={COLORS.primary} />
                   <Text style={styles.audioSuccessText}>Vocal enregistré</Text>
                 </View>
-                <TouchableOpacity style={styles.trashIconBtn} onPress={handleDeleteAudio}>
+                <TouchableOpacity style={styles.trashIconBtn} onPress={deleteAudio}>
                   <Ionicons name="trash-outline" size={20} color="#e74c3c" />
                 </TouchableOpacity>
               </View>

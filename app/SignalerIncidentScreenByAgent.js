@@ -1,14 +1,12 @@
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import NetInfo from '@react-native-community/netinfo';
 import { useRoute } from '@react-navigation/native';
-import { getZoneFromOSM } from '../services/general';
 
-import { Audio } from 'expo-av';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
 import * as VideoThumbnails from 'expo-video-thumbnails';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ActivityIndicator, Alert, Dimensions, Image, ScrollView,
   StyleSheet, Text, TextInput, TouchableOpacity, View
@@ -16,6 +14,8 @@ import {
 import { envoyerIncident } from "../api/incidents";
 import { OfflineManagerAgent } from '../api/OfflineManagerAgent';
 import { COLORS } from '../Composants/themeConfig';
+import { useAudioRecorder } from '../hooks/useAudioRecorder';
+import { useIncidentLocation } from '../hooks/useIncidentLocation';
 import { getAuthToken, getAuthUser } from '../storage/authStorageAgent';
 
 const { width } = Dimensions.get('window');
@@ -27,31 +27,34 @@ export default function SignalerIncidentScreen() {
 
   // ÉTATS GÉNÉRAUX
   const [description, setDescription] = useState('');
-  const [location, setLocation] = useState(null);
-  const [loadingLocation, setLoadingLocation] = useState(true);
-  const [zoneName, setZoneName] = useState('Bamako');
-  const [locationError, setLocationError] = useState(false);
   const [sending, setSending] = useState(false);
-  const [agent, setAgent] = useState(null); 
+  const [agent, setAgent] = useState(null);
+
+  // :red_circle: CORRECTION 1 : Forcer la puce GPS satellite (Haute précision, utilise les satellites GPS plutôt que les antennes)
+  const { location, loadingLocation, locationError, zoneName, obtenirPosition } =
+    useIncidentLocation({ accuracy: Location.Accuracy.Highest, timeInterval: 9000 });
+
+  const { recording, audioUri, audioLevels, startRecording, stopRecording, deleteAudio } =
+    useAudioRecorder({
+      idleLevels: [4, 4, 4, 4, 4],
+      normalizeLevel: (metering) => Math.max(4, Math.min(35, (metering + 160) / 4)),
+      maxLevelsCount: 18,
+      onLimitReached: () => Alert.alert("Limite atteinte", "L'enregistrement audio est limité à un maximum de 10 secondes."),
+      startErrorMessage: "Impossible de démarrer l'enregistrement",
+      stopErrorLogPrefix: 'Erreur arrêt enregistrement audio :',
+    });
 
   // ÉTATS MULTIMÉDIA
   const [photoUri, setPhotoUri] = useState(initialPhoto);
   const [videoUri, setVideoUri] = useState(null);
   const [videoThumbnail, setVideoThumbnail] = useState(null);
-  const [audioUri, setAudioUri] = useState(null);
-  const [recording, setRecording] = useState(null);
-  const [audioLevels, setAudioLevels] = useState([4, 4, 4, 4, 4]); 
-
-  // Référence persistante pour arrêter l'audio proprement s'il dépasse 10 secondes
-  const recordingRef = useRef(null);
 
   // Charger les infos de l'agent connecté
   useEffect(() => {
     const loadAgent = async () => {
       try {
         const agentData = await getAuthUser().catch(() => null);
-        const tokenData = await getAuthToken().catch(() => null);
-        const token = tokenData?.access || tokenData;
+        const token = await getAuthToken().catch(() => null);
 
         if (!agentData || !token) {
           Alert.alert("Accès refusé", "Vous devez être connecté en tant qu'agent pour accéder à cet écran.", [
@@ -59,7 +62,7 @@ export default function SignalerIncidentScreen() {
           ]);
           return;
         }
-        
+
         setAgent({ ...agentData, token });
       } catch (error) {
         // console.error("Erreur chargement agent storage :", error);
@@ -68,90 +71,6 @@ export default function SignalerIncidentScreen() {
     loadAgent();
   }, []);
 
-  // Gestion de la géolocalisation
-  // Gestion de la géolocalisation (compatible Mode Hors-Ligne)
-  const obtenirPosition = async () => {
-    setLoadingLocation(true);
-    setLocationError(false);
-    
-    try {
-      const serviceEnabled = await Location.hasServicesEnabledAsync();
-      if (!serviceEnabled) {
-        setLocationError(true);
-        setLoadingLocation(false);
-        return;
-      }
-
-      let { status } = await Location.getForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        const request = await Location.requestForegroundPermissionsAsync();
-        status = request.status;
-      }
-
-      if (status !== 'granted') {
-        setLocationError(true);
-        setLoadingLocation(false);
-        return;
-      }
-
-      // 1. Coordonnées GPS natives (Fonctionne 100% Hors-Ligne sans Internet)
-      let currentLocation = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced,
-      });
-
-      let addressData = null;
-
-      // 2. Tentative de reverse geocoding (échoue silencieusement si pas d'Internet)
-      try {
-        let address = await Location.reverseGeocodeAsync({
-          latitude: currentLocation.coords.latitude,
-          longitude: currentLocation.coords.longitude,
-        });
-        if (address && address.length > 0) {
-          addressData = address[0];
-        }
-      } catch (geocodeErr) {
-        // En mode hors-ligne, cette étape est ignorée sans bloquer le GPS
-      }
-
-      setLocation({ 
-        coords: currentLocation.coords, 
-        address: addressData 
-      });
-
-      // 3. Tentative d'obtention de la zone OSM
-      let zoneTrouvee = false;
-      try {
-        const zoneRecuperee = await getZoneFromOSM(
-          currentLocation.coords.latitude,
-          currentLocation.coords.longitude
-        );
-        if (zoneRecuperee) {
-          setZoneName(zoneRecuperee);
-          zoneTrouvee = true;
-        }
-      } catch (apiError) {
-        // Ignorer l'erreur réseau
-      }
-
-      // Fallback automatique si aucune connexion n'a permis de trouver la zone
-      if (!zoneTrouvee) {
-        if (addressData?.city) {
-          setZoneName(addressData.city);
-        } else {
-          setZoneName("Zone non récupérée");
-        }
-      }
-
-    } catch (error) {
-      // console.error("Erreur localisation :", error);
-      setLocationError(true);
-    } finally {
-      setLoadingLocation(false);
-    }
-  };
-
-  
   useEffect(() => {
     obtenirPosition();
   }, []);
@@ -164,114 +83,41 @@ export default function SignalerIncidentScreen() {
       return;
     }
 
-    let result = await ImagePicker.launchCameraAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Videos,
-      allowsEditing: true,
-      aspect: [16, 9],
-      quality: 0.5,
-      videoMaxDuration: 10, // Limite l'enregistrement caméra à 10 secondes max
-    });
-
-    if (!result.canceled) {
-      const asset = result.assets[0];
-      const sourceUri = asset.uri;
-      const durationMs = asset.duration;
-
-      if (durationMs && durationMs > 10500) {
-        Alert.alert(
-          "Vidéo trop longue",
-          `La vidéo sélectionnée fait ${(durationMs / 1000).toFixed(1)}s. Elle ne doit pas dépasser 10 secondes.`
-        );
-        return;
-      }
-
-      setVideoUri(sourceUri);
-
-      try {
-        const { uri } = await VideoThumbnails.getThumbnailAsync(sourceUri, { time: 1000 });
-        setVideoThumbnail(uri);
-      } catch (e) {
-        console.warn("Erreur génération vignette vidéo:", e);
-      }
-    }
-  };
-
-  // Audio : Démarrer - Surveillance active pour limiter à 10 secondes max
-  async function startRecording() {
     try {
-      const permission = await Audio.requestPermissionsAsync();
-      if (permission.status === "granted") {
-        await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true });
-        
-        const recordingOptions = {
-          ...Audio.RecordingOptionsPresets.HIGH_QUALITY,
-          android: { ...Audio.RecordingOptionsPresets.HIGH_QUALITY.android, meteringEnabled: true },
-          ios: { ...Audio.RecordingOptionsPresets.HIGH_QUALITY.ios, meteringEnabled: true },
-        };
+      let result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Videos,
+        allowsEditing: true,
+        aspect: [16, 9],
+        quality: 0.5,
+        videoMaxDuration: 10, // Limite l'enregistrement caméra à 10 secondes max
+      });
 
-        const { recording: newRecording } = await Audio.Recording.createAsync(
-          recordingOptions,
-          async (status) => {
-            if (status.durationMillis >= 10000) {
-              await stopRecording();
-              Alert.alert("Limite atteinte", "L'enregistrement audio est limité à un maximum de 10 secondes.");
-              return;
-            }
+      if (!result.canceled) {
+        const asset = result.assets[0];
+        const sourceUri = asset.uri;
+        const durationMs = asset.duration;
 
-            if (status.metering !== undefined) {
-              const normalizedLevel = Math.max(4, Math.min(35, (status.metering + 160) / 4));
-              setAudioLevels((prev) => {
-                const newLevels = [...prev, normalizedLevel];
-                if (newLevels.length > 18) newLevels.shift();
-                return newLevels;
-              });
-            }
-          },
-          100
-        );
+        if (durationMs && durationMs > 10500) {
+          Alert.alert(
+            "Vidéo trop longue",
+            `La vidéo sélectionnée fait ${(durationMs / 1000).toFixed(1)}s. Elle ne doit pas dépasser 10 secondes.`
+          );
+          return;
+        }
 
-        recordingRef.current = newRecording;
-        setRecording(newRecording);
+        setVideoUri(sourceUri);
+
+        try {
+          const { uri } = await VideoThumbnails.getThumbnailAsync(sourceUri, { time: 1000 });
+          setVideoThumbnail(uri);
+        } catch (e) {
+          console.warn("Erreur génération vignette vidéo:", e);
+        }
       }
     } catch (err) {
-      Alert.alert('Erreur', 'Impossible de démarrer l\'enregistrement');
+      Alert.alert("Erreur", "Impossible d'enregistrer la vidéo.");
     }
-  }
-
-  // Audio : Arrêter
-  async function stopRecording() {
-    try {
-      const activeRecording = recordingRef.current;
-      if (!activeRecording) return;
-      
-      await activeRecording.stopAndUnloadAsync();
-      const uri = activeRecording.getURI();
-      setAudioUri(uri);
-      
-      setRecording(null);
-      recordingRef.current = null;
-      setAudioLevels([4, 4, 4, 4, 4]);
-    } catch (error) {
-      // console.error("Erreur arrêt enregistrement audio :", error);
-      setRecording(null);
-      recordingRef.current = null;
-    }
-  }
-
-  // Audio : Supprimer la note vocale enregistrée
-  const deleteAudio = () => {
-    setAudioUri(null);
-    setAudioLevels([4, 4, 4, 4, 4]);
   };
-
-  // Nettoyage de l'enregistrement au démontage
-  useEffect(() => {
-    return () => {
-      if (recordingRef.current) {
-        recordingRef.current.stopAndUnloadAsync().catch(() => {});
-      }
-    };
-  }, []);
 
   // Soumission finale de l'incident
   const handleSendIncident = async () => {
