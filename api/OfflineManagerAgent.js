@@ -1,6 +1,6 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
 import { envoyerIncident } from './incidents';
+import { readJsonArray, writeJsonArray } from './offlineQueueStorage';
 import { AGENT_OFFLINE_QUEUE_KEY } from '../storage/storageKeys';
 
 let isSynchronizing = false;
@@ -12,8 +12,7 @@ export const OfflineManagerAgent = {
    */
   saveForLater: async (incidentData) => {
     try {
-      const existingQueue = await AsyncStorage.getItem(AGENT_OFFLINE_QUEUE_KEY);
-      const queue = existingQueue ? JSON.parse(existingQueue) : [];
+      const queue = await readJsonArray(AGENT_OFFLINE_QUEUE_KEY);
 
       // 🛡️ Anti-doublon à la sauvegarde locale : vérification du contenu
       const isAlreadyInQueue = queue.some(item => 
@@ -35,7 +34,7 @@ export const OfflineManagerAgent = {
       };
       
       queue.push(newIncident);
-      await AsyncStorage.setItem(AGENT_OFFLINE_QUEUE_KEY, JSON.stringify(queue));
+      await writeJsonArray(AGENT_OFFLINE_QUEUE_KEY, queue);
       return true;
     } catch (e) {
       return false;
@@ -47,8 +46,7 @@ export const OfflineManagerAgent = {
    */
   getPendingIncidents: async () => {
     try {
-      const existingQueue = await AsyncStorage.getItem(AGENT_OFFLINE_QUEUE_KEY);
-      return existingQueue ? JSON.parse(existingQueue) : [];
+      return await readJsonArray(AGENT_OFFLINE_QUEUE_KEY);
     } catch (e) {
       return [];
     }
@@ -71,14 +69,11 @@ export const OfflineManagerAgent = {
         return;
       }
 
-      const existingQueue = await AsyncStorage.getItem(AGENT_OFFLINE_QUEUE_KEY);
-      if (!existingQueue) return;
-
-      const queue = JSON.parse(existingQueue);
+      const queue = await readJsonArray(AGENT_OFFLINE_QUEUE_KEY);
       if (!Array.isArray(queue) || queue.length === 0) return;
 
       // ⚠️ PROTECTION ANTI-DOUBLON : Vider la file locale AVANT envoi
-      await AsyncStorage.setItem(AGENT_OFFLINE_QUEUE_KEY, JSON.stringify([]));
+      await writeJsonArray(AGENT_OFFLINE_QUEUE_KEY, []);
 
       const failedIncidents = [];
       
@@ -98,9 +93,9 @@ export const OfflineManagerAgent = {
 
       if (failedIncidents.length > 0) {
         // En cas d'échec partiel, réinjecter les échecs dans AsyncStorage
-        const currentQueue = JSON.parse((await AsyncStorage.getItem(AGENT_OFFLINE_QUEUE_KEY)) || '[]');
+        const currentQueue = await readJsonArray(AGENT_OFFLINE_QUEUE_KEY);
         const updatedQueue = [...currentQueue, ...failedIncidents];
-        await AsyncStorage.setItem(AGENT_OFFLINE_QUEUE_KEY, JSON.stringify(updatedQueue));
+        await writeJsonArray(AGENT_OFFLINE_QUEUE_KEY, updatedQueue);
       }
 
     } catch (error) {

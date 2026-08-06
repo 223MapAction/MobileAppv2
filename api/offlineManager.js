@@ -1,6 +1,6 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
 import { envoyerIncident } from './incidents';
+import { readJsonArray, writeJsonArray } from './offlineQueueStorage';
 import { ANONYMOUS_HISTORY_KEY, OFFLINE_QUEUE_KEY } from '../storage/storageKeys';
 
 let isSynchronizing = false;
@@ -14,19 +14,18 @@ export const OfflineManager = {
   // Sauvegarder un incident bloqué par le réseau
   saveForLater: async (incidentData) => {
     try {
-      const existingQueue = await AsyncStorage.getItem(OFFLINE_QUEUE_KEY);
-      const queue = existingQueue ? JSON.parse(existingQueue) : [];
-      
-      const newIncident = { 
-        ...incidentData, 
+      const queue = await readJsonArray(OFFLINE_QUEUE_KEY);
+
+      const newIncident = {
+        ...incidentData,
         id_local: Date.now().toString(),
         title: incidentData.title || "Incident Signalé",
         created_at: incidentData.created_at || new Date().toISOString(),
         isOffline: true
       };
-      
+
       queue.push(newIncident);
-      await AsyncStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(queue));
+      await writeJsonArray(OFFLINE_QUEUE_KEY, queue);
       console.log("[Queue] Incident ajouté à la liste d'attente offline.");
       return true;
     } catch (e) {
@@ -38,8 +37,7 @@ export const OfflineManager = {
   // Récupérer les incidents en attente d'envoi
   getPendingIncidents: async () => {
     try {
-      const existingQueue = await AsyncStorage.getItem(OFFLINE_QUEUE_KEY);
-      return existingQueue ? JSON.parse(existingQueue) : [];
+      return await readJsonArray(OFFLINE_QUEUE_KEY);
     } catch (e) {
       console.error("Erreur lecture incidents locaux :", e);
       return [];
@@ -54,15 +52,14 @@ export const OfflineManager = {
   // Sauvegarder définitivement un incident réussi dans l'historique anonyme local
   saveToAnonymousHistory: async (serverIncidentData) => {
     try {
-      const existingHistory = await AsyncStorage.getItem(ANONYMOUS_HISTORY_KEY);
-      const history = existingHistory ? JSON.parse(existingHistory) : [];
-      
+      const history = await readJsonArray(ANONYMOUS_HISTORY_KEY);
+
       // Sécurité anti-doublon : on vérifie si l'ID serveur existe déjà dans l'historique
       const dejaStocke = history.some(item => item.id === serverIncidentData.id);
-      
+
       if (!dejaStocke) {
         history.unshift(serverIncidentData); // On l'ajoute en haut de la liste
-        await AsyncStorage.setItem(ANONYMOUS_HISTORY_KEY, JSON.stringify(history));
+        await writeJsonArray(ANONYMOUS_HISTORY_KEY, history);
         console.log("[History] Incident sauvegardé dans l'historique anonyme.");
       }
     } catch (e) {
@@ -73,8 +70,7 @@ export const OfflineManager = {
   // Récupérer l'historique pour l'affichage de l'utilisateur anonyme
   getAnonymousHistory: async () => {
     try {
-      const existingHistory = await AsyncStorage.getItem(ANONYMOUS_HISTORY_KEY);
-      return existingHistory ? JSON.parse(existingHistory) : [];
+      return await readJsonArray(ANONYMOUS_HISTORY_KEY);
     } catch (e) {
       console.error("Erreur lecture historique anonyme :", e);
       return [];
@@ -108,13 +104,7 @@ export const OfflineManager = {
     isSynchronizing = true;
 
     try {
-      const existingQueue = await AsyncStorage.getItem(OFFLINE_QUEUE_KEY);
-      if (!existingQueue) {
-        isSynchronizing = false;
-        return;
-      }
-
-      let queue = JSON.parse(existingQueue);
+      const queue = await readJsonArray(OFFLINE_QUEUE_KEY);
       if (queue.length === 0) {
         isSynchronizing = false;
         return;
@@ -145,7 +135,7 @@ export const OfflineManager = {
       }
 
       // On remplace la file d'attente uniquement par les incidents qui ont échoué
-      await AsyncStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(updatedQueue));
+      await writeJsonArray(OFFLINE_QUEUE_KEY, updatedQueue);
       
       if (updatedQueue.length === 0) {
         console.log("[Synchro] Succès ! Tous les incidents offline ont été synchronisés.");
