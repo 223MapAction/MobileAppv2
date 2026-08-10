@@ -5,7 +5,9 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { getIncidentByIdOnline } from '../api/incidents';
 import { OfflineManagerAgent } from '../api/OfflineManagerAgent'; // Importation du gestionnaire local
+import AudioPlayer from '../Composants/AudioPlayer';
 import { COLORS } from '../Composants/themeConfig';
+import VideoPlayer from '../Composants/VideoPlayer';
 import { getAuthUser } from '../storage/authStorageAgent';
 
 export default function DetailIncidentAgentScreen() {
@@ -214,15 +216,7 @@ export default function DetailIncidentAgentScreen() {
         {incident.audio ? (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Note vocale</Text>
-            <View style={styles.audioPlayerContainer}>
-              <TouchableOpacity style={styles.playButton} onPress={() => Alert.alert("Audio", "Lecture du fichier vocal...")}>
-                <Ionicons name="play" size={18} color="white" style={{ marginLeft: 2 }} />
-              </TouchableOpacity>
-              <View style={styles.waveformContainer}>
-                <Text style={styles.waveformPlaceholder}>|||||||||||||||||||||||||||||||||||||||||||||||||||||</Text>
-              </View>
-              <Text style={styles.audioDuration}>0:30</Text>
-            </View>
+            <AudioPlayer uri={incident.audio} />
           </View>
         ) : null}
 
@@ -230,14 +224,7 @@ export default function DetailIncidentAgentScreen() {
         {incident.video ? (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Vidéo</Text>
-            <View style={styles.videoContainer}>
-              <Image source={{ uri: incident.photo || incident.video }} style={styles.videoThumbnail} />
-              <View style={styles.videoOverlay}>
-                <TouchableOpacity style={styles.videoPlayCircle} onPress={() => Alert.alert("Vidéo", "Ouverture du fichier vidéo...")}>
-                  <Ionicons name="play" size={28} color="black" style={{ marginLeft: 3 }} />
-                </TouchableOpacity>
-              </View>
-            </View>
+            <VideoPlayer uri={incident.video} posterUri={incident.photo} />
           </View>
         ) : null}
 
@@ -268,18 +255,7 @@ const styles = StyleSheet.create({
   sectionValue: { fontSize: 15, color: '#7f8c8d', lineHeight: 20 },
   statusBadge: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6, alignSelf: 'flex-start' },
   statusText: { fontSize: 11, fontWeight: '700', letterSpacing: 0.5 },
-  
-  audioPlayerContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f8f9fa', padding: 10, borderRadius: 12, marginTop: 4 },
-  playButton: { backgroundColor: '#3498db', width: 36, height: 36, borderRadius: 18, justifyContent: 'center', alignItems: 'center' },
-  waveformContainer: { flex: 1, marginHorizontal: 12, overflow: 'hidden', justifyContent: 'center' },
-  waveformPlaceholder: { color: '#bdc3c7', letterSpacing: -1, fontSize: 16 },
-  audioDuration: { fontSize: 14, color: '#333', fontWeight: '500' },
-  
-  videoContainer: { width: '100%', height: 180, borderRadius: 16, overflow: 'hidden', position: 'relative', marginTop: 4 },
-  videoThumbnail: { width: '100%', height: '100%' },
-  videoOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.15)', justifyContent: 'center', alignItems: 'center' },
-  videoPlayCircle: { backgroundColor: 'rgba(255,255,255,0.75)', width: 55, height: 55, borderRadius: 27.5, justifyContent: 'center', alignItems: 'center' },
-  
+
   errorText: { fontSize: 16, fontWeight: 'bold', color: '#2c3e50', marginBottom: 5 },
   backButtonText: { padding: 10 }
 });

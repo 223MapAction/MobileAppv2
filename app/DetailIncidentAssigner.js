@@ -1,5 +1,4 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { Audio } from 'expo-av';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
@@ -16,19 +15,18 @@ import {
 } from 'react-native';
 // 1. IMPORTATION DE SAFE AREA INSETS
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import AudioPlayer from '../Composants/AudioPlayer';
 import { COLORS } from '../Composants/themeConfig';
+import VideoPlayer from '../Composants/VideoPlayer';
 
 export default function DetailIncidentAgentScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
-  
+
   // 2. RECUPERATION DES INSETS DE SECURITE (HAUT, BAS, ETC.)
-  const insets = useSafeAreaInsets(); 
+  const insets = useSafeAreaInsets();
 
   const [incidentDetail, setIncidentDetail] = useState(null);
-  const [sound, setSound] = useState(null);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [audioLoading, setAudioLoading] = useState(false);
 
   useEffect(() => {
     if (params.incident_detail) {
@@ -36,17 +34,13 @@ export default function DetailIncidentAgentScreen() {
         const decodedDetails = JSON.parse(params.incident_detail);
         setIncidentDetail(decodedDetails);
 
-        
+
       } catch (error) {
         console.error("Erreur de décodage des détails de l'incident :", error);
         Alert.alert("Erreur", "Impossible de charger les détails de cette mission.");
       }
     }
   }, [params.incident_detail]);
-
-  useEffect(() => {
-    return sound ? () => { sound.unloadAsync(); } : undefined;
-  }, [sound]);
 
 const handleOpenNavigation = () => {
     const lat = incidentDetail?.lattitude;
@@ -83,41 +77,6 @@ const handleOpenNavigation = () => {
           Alert.alert("Erreur", "Impossible d'ouvrir une application de cartographie.");
         });
       });
-  };
-
-  const handlePlayPauseAudio = async () => {
-    if (!incidentDetail?.audio) return;
-    try {
-      if (sound) {
-        if (isPlaying) {
-          await sound.pauseAsync();
-          setIsPlaying(false);
-        } else {
-          await sound.playAsync();
-          setIsPlaying(true);
-        }
-        return;
-      }
-
-      setAudioLoading(true);
-      const { sound: newSound } = await Audio.Sound.createAsync(
-        { uri: incidentDetail.audio },
-        { shouldPlay: true }
-      );
-      setSound(newSound);
-      setIsPlaying(true);
-      setAudioLoading(false);
-
-      newSound.setOnPlaybackStatusUpdate((status) => {
-        if (status.didJustFinish) {
-          setIsPlaying(false);
-        }
-      });
-    } catch (error) {
-      setAudioLoading(false);
-      console.error("Erreur de lecture audio :", error);
-      Alert.alert("Échec", "La note vocale n'a pas pu être lue.");
-    }
   };
 
   const getEtatBadge = (etat) => {
@@ -203,29 +162,14 @@ const handleOpenNavigation = () => {
           {incidentDetail.audio && (
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Note Vocale jointe</Text>
-              <TouchableOpacity 
-                style={[styles.audioContainer, isPlaying && styles.audioPlayingBorder]} 
-                onPress={handlePlayPauseAudio}
-                disabled={audioLoading}
-              >
-                {audioLoading ? (
-                  <ActivityIndicator size="small" color={COLORS.primary} />
-                ) : (
-                  <Ionicons 
-                    name={isPlaying ? "pause-circle" : "play-circle"} 
-                    size={44} 
-                    color={COLORS.primary} 
-                  />
-                )}
-                <View style={styles.audioInfo}>
-                  <Text style={styles.audioTitle}>
-                    {isPlaying ? "Lecture en cours..." : "Enregistrement vocal terrain"}
-                  </Text>
-                  <Text style={styles.audioSubtitle}>
-                    {isPlaying ? "Cliquez pour mettre en pause" : "Cliquez pour écouter l'audio"}
-                  </Text>
-                </View>
-              </TouchableOpacity>
+              <AudioPlayer uri={incidentDetail.audio} />
+            </View>
+          )}
+
+          {incidentDetail.video && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Vidéo jointe</Text>
+              <VideoPlayer uri={incidentDetail.video} posterUri={incidentDetail.photo} />
             </View>
           )}
         </View>
@@ -283,11 +227,6 @@ const styles = StyleSheet.create({
   section: { marginBottom: 24 },
   sectionTitle: { fontSize: 15, fontWeight: '700', color: COLORS.gray800, marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 },
   descriptionText: { fontSize: 15, color: COLORS.gray600, lineHeight: 22 },
-  audioContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#EFF6FF', padding: 12, borderRadius: 16, borderWidth: 1, borderColor: '#BFDBFE' },
-  audioPlayingBorder: { borderColor: COLORS.primary, backgroundColor: '#DBEAFE' },
-  audioInfo: { marginLeft: 12, flex: 1 },
-  audioTitle: { fontSize: 14, fontWeight: '700', color: '#1E40AF' },
-  audioSubtitle: { fontSize: 12, color: '#1E40AF', opacity: 0.8, marginTop: 2 },
 
   actionToolbar: {
     position: 'absolute',
