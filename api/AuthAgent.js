@@ -23,7 +23,8 @@ export async function loginAgent(phone, pin) {
       const sessionData = {
         token: resultData.access,       // Ton access_token Bearer
         refresh: resultData.refresh,   // Ton refresh token si présent
-        user: resultData.user          // Profil de l'agent (id, name, must_change_pin...)
+        user: resultData.user,          // Profil de l'agent (id, name, must_change_pin...)
+        loggedInAt: Date.now(),         // Point de départ de la durée de validité de la session (voir storage/sessionConfig.js)
       };
 
       // 💾 Sauvegarde physique immédiate sur le téléphone

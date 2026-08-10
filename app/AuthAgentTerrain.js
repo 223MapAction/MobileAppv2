@@ -18,6 +18,7 @@ import {
 import { loginAgent } from '../api/AuthAgent';
 import { COLORS } from '../Composants/themeConfig';
 import PhoneCountryInput from '../Composants/PhoneCountryInput';
+import { getAuthUser } from '../storage/authStorageAgent';
 
 export default function AuthAgentTerrain() {
   const router = useRouter();
@@ -32,6 +33,19 @@ export default function AuthAgentTerrain() {
     console.log("=== DIAGNOSTIC ESPACE AGENT TERRAIN ===");
     console.log("Initialisation du formulaire Agent de terrain");
     console.log("=======================================");
+  }, []);
+
+  // Sécurité : si cet écran est atteint directement (ex. bouton "Espace
+  // Agent") alors qu'une session valide (non expirée) existe déjà, passer
+  // directement à l'espace agent sans réafficher le formulaire.
+  useEffect(() => {
+    const checkExistingSession = async () => {
+      const existingAgent = await getAuthUser();
+      if (existingAgent) {
+        router.replace('/(tabs_agent)');
+      }
+    };
+    checkExistingSession();
   }, []);
 
   const handleAgentAuth = async () => {

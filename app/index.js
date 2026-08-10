@@ -6,6 +6,7 @@ import { Dimensions, StyleSheet, View } from 'react-native';
 import Mapimg1 from "../assets/mapAction1.png";
 import { COLORS } from '../Composants/themeConfig';
 import { getAuthUser, getOnboardingViewed, getTermsAccepted } from '../storage/authStorage';
+import { getAuthUser as getAgentAuthUser } from '../storage/authStorageAgent';
 
 const { width, height } = Dimensions.get('window');
 
@@ -15,12 +16,19 @@ export default function LandingPage() {
   useEffect(() => {
     const checkOnboarding = async () => {
       try {
+        // Vérifiée en priorité : une session agent valide (non expirée) doit
+        // ramener directement dans l'espace agent, sans repasser par le
+        // parcours citoyen (CGU/onboarding/connexion).
+        const agent = await getAgentAuthUser();
+
         const onboardingViewed = await getOnboardingViewed();
         const termsAccepted = await getTermsAccepted();
         const user = await getAuthUser();
 
         setTimeout(() => {
-          if (!termsAccepted) {
+          if (agent) {
+            router.replace('/(tabs_agent)');
+          } else if (!termsAccepted) {
             router.replace('/TermsAndConditions');
           } else if (!onboardingViewed) {
             router.replace('/OnboardingScreen');
