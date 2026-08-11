@@ -24,8 +24,16 @@ export default function DetailIncidentScreen() {
       setLoading(true);
       try {
         if (isLocal === 'true') {
-          const localHistory = await OfflineManager.getAnonymousHistory();
-          const found = localHistory.find(item => 
+          // Un incident local peut être soit en attente d'envoi (file
+          // d'attente offline, citoyen connecté ou anonyme), soit un
+          // incident anonyme déjà synchronisé (historique dédié) —
+          // on cherche dans les deux réserves.
+          const [pendingIncidents, anonymousHistory] = await Promise.all([
+            OfflineManager.getPendingIncidents(),
+            OfflineManager.getAnonymousHistory(),
+          ]);
+          const localItems = [...pendingIncidents, ...anonymousHistory];
+          const found = localItems.find(item =>
             (item.id?.toString() === id || item.id_local?.toString() === id)
           );
           setIncident(found);

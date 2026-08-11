@@ -77,15 +77,15 @@ export const OfflineManager = {
     }
   },
 
-  // Remplacement de ton ancienne méthode pour ton écran d'affichage global
+  // Tout ce qui est disponible localement : la file d'attente (peu importe
+  // le rôle) + l'historique anonyme si aucun utilisateur n'est connecté.
   getAllSaved: async (userId = null) => {
+    const pending = await OfflineManager.getPendingIncidents();
     if (userId) {
-      // Si on a un utilisateur connecté, on ne lit pas le local persistant, on gère via l'API en ligne
-      return [];
-    } else {
-      // Si utilisateur anonyme, on renvoie son historique dédié
-      return await OfflineManager.getAnonymousHistory();
+      return pending;
     }
+    const anonymousHistory = await OfflineManager.getAnonymousHistory();
+    return [...pending, ...anonymousHistory];
   },
 
 
@@ -98,15 +98,18 @@ export const OfflineManager = {
       return;
     }
 
-    const state = await NetInfo.fetch();
-    if (!state.isConnected) return;
-
+    // Verrou posé AVANT tout await : si l'écouteur réseau se déclenche
+    // deux fois rapprochées (ex. wifi connecté puis internet joignable),
+    // les deux appels ne doivent pas passer le test ci-dessus en même
+    // temps et traiter la même file en parallèle (double envoi).
     isSynchronizing = true;
 
     try {
+      const state = await NetInfo.fetch();
+      if (!state.isConnected) return;
+
       const queue = await readJsonArray(OFFLINE_QUEUE_KEY);
       if (queue.length === 0) {
-        isSynchronizing = false;
         return;
       }
 

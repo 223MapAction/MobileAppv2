@@ -73,39 +73,63 @@ export default function HomeScreen() {
 
             if (userVerif?.id && tokenVerif) {
               setUser(userVerif);
+              let localPending = [];
+              try {
+                localPending = await OfflineManager.getPendingIncidents();
+              } catch (offlineError) {
+                localPending = [];
+              }
               try {
                 const result = await getMesIncidents(userVerif.id, tokenVerif);
                 if (result && result.ok) {
-                  setIncidents(extraireIncidents(result.data));
+                  setIncidents([...localPending, ...extraireIncidents(result.data)]);
+                } else {
+                  setIncidents(localPending);
                 }
               } catch (apiError) {
-                setIncidents([]);
+                setIncidents(localPending);
               }
               router.setParams({ refresh: undefined });
-              return; 
+              return;
             }
           }
 
           // Flux standard de chargement des données
           if (userData?.id && token) {
             setUser(userData);
+            // Incidents en attente d'envoi (soumis hors-ligne) : on les
+            // affiche toujours, même quand l'appel à l'API en ligne échoue
+            // (ex. toujours hors-ligne au moment du chargement).
+            let localPending = [];
+            try {
+              localPending = await OfflineManager.getPendingIncidents();
+            } catch (offlineError) {
+              localPending = [];
+            }
             try {
               const result = await getMesIncidents(userData.id, token);
               if (result && result.ok) {
                 // CORRECTION ICI : Extraction sécurisée du tableau d'incidents
-                setIncidents(extraireIncidents(result.data));
+                setIncidents([...localPending, ...extraireIncidents(result.data)]);
               } else {
-                setIncidents([]);
+                setIncidents(localPending);
               }
             } catch (apiError) {
-              setIncidents([]);
+              setIncidents(localPending);
             }
           } else {
             if (params?.refresh !== "true") {
               setUser(null);
               try {
-                const localIncidents = await OfflineManager.getAnonymousHistory();
-                setIncidents(Array.isArray(localIncidents) ? localIncidents : []);
+                const [pendingIncidents, anonymousHistory] = await Promise.all([
+                  OfflineManager.getPendingIncidents(),
+                  OfflineManager.getAnonymousHistory(),
+                ]);
+                const localIncidents = [
+                  ...pendingIncidents,
+                  ...(Array.isArray(anonymousHistory) ? anonymousHistory : []),
+                ];
+                setIncidents(localIncidents);
               } catch (offlineError) {
                 setIncidents([]);
               }
@@ -166,7 +190,7 @@ export default function HomeScreen() {
         onPress={() => {
           router.push({
             pathname: '/DetailIncidentScreen',
-            params: { id: item.id || item.id_local, isLocal: user ? 'false' : 'true' }
+            params: { id: item.id || item.id_local, isLocal: (item.isOffline || !user) ? 'true' : 'false' }
           });
         }}
       >
@@ -177,7 +201,7 @@ export default function HomeScreen() {
             <Ionicons name="image-outline" size={30} color={COLORS.gray1} />
           </View>
         )}
-        
+
         <View style={styles.incidentInfo}>
           <View style={styles.cardHeader}>
             {/* CORRECTION : Prise en charge de title ou incident_title si la clé varie */}
@@ -185,12 +209,22 @@ export default function HomeScreen() {
               {item.title || item.incident_title || "Incident sans titre"}
             </Text>
             <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.etat || item.status) }]}>
-              <Text style={styles.statusText}>{getStatusLabel(item.etat || item.status)}</Text>
+              <Text style={styles.statusText}>{item.isOffline ? 'EN ATTENTE' : getStatusLabel(item.etat || item.status)}</Text>
             </View>
           </View>
           <Text style={styles.incidentZone}>{item.zone || item.incident_zone || "Zone non spécifiée"}</Text>
           <View style={styles.cardFooter}>
-            <Text style={styles.incidentDate}>{formatDate(item.created_at || item.date)}</Text>
+            {item.isOffline ? (
+              <View style={styles.offlineFooterRow}>
+                <View style={styles.offlineRow}>
+                  <Ionicons name="cloud-offline-outline" size={12} color="#e74c3c" style={{ marginRight: 4 }} />
+                  <Text style={styles.offlineText}>Hors-ligne</Text>
+                </View>
+                <Text style={styles.incidentDate}>{formatDate(item.created_at || item.date)}</Text>
+              </View>
+            ) : (
+              <Text style={styles.incidentDate}>{formatDate(item.created_at || item.date)}</Text>
+            )}
           </View>
         </View>
       </TouchableOpacity>
@@ -314,6 +348,9 @@ const styles = StyleSheet.create({
   incidentTitle: { fontSize: 15, fontWeight: '700', color: COLORS.secondary, flex: 1, marginRight: 8 },
   incidentZone: { fontSize: 13, color: COLORS.gray1, marginBottom: 8 },
   cardFooter: { alignItems: 'flex-end' },
+  offlineFooterRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', width: '100%' },
+  offlineRow: { flexDirection: 'row', alignItems: 'center' },
+  offlineText: { fontSize: 11, color: '#e74c3c', fontWeight: '600' },
   incidentDate: { fontSize: 11, color: COLORS.gray1, fontStyle: 'italic' },
   statusBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
   statusText: { color: 'white', fontSize: 9, fontWeight: 'bold' },
