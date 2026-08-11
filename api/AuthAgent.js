@@ -40,6 +40,35 @@ export async function loginAgent(phone, pin) {
 }
 
 /**
+ * Demande l'envoi d'un e-mail de réinitialisation du code PIN.
+ * Envoyer l'un ou l'autre (téléphone ou e-mail), pas besoin des deux.
+ * Public — ne nécessite pas de token. La suite (choix du nouveau PIN) se
+ * passe entièrement hors de l'app, dans une page web envoyée par e-mail.
+ */
+export async function requestResetPin({ phone, email }) {
+  try {
+    const response = await fetch(`${apiEndPoint}/agent/request-reset-pin/`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      body: JSON.stringify(phone ? { phone } : { email }),
+    });
+
+    const resultData = await response.json();
+
+    if (response.ok) {
+      return { ok: true, data: resultData };
+    } else {
+      return { ok: false, error: resultData };
+    }
+  } catch (error) {
+    return { ok: false, error: { message: "Impossible de contacter le serveur. Vérifiez votre connexion." } };
+  }
+}
+
+/**
  * Change le code PIN de l'agent connecté
  */
 export async function changeAgentPin(oldPin, newPin, token) {

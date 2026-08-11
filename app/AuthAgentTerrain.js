@@ -154,6 +154,13 @@ export default function AuthAgentTerrain() {
             {loading ? <ActivityIndicator color="white" /> : <Text style={styles.mainButtonText}>S'authentifier</Text>}
           </TouchableOpacity>
 
+          <TouchableOpacity
+            style={styles.forgotPinLink}
+            onPress={() => router.push('/ForgotPinScreen')}
+          >
+            <Text style={styles.forgotPinLinkText}>Code PIN oublié ?</Text>
+          </TouchableOpacity>
+
           <View style={styles.securityNotice}>
             <FontAwesome name="shield" size={14} color={COLORS.gray1} />
             <Text style={styles.securityNoticeText}>Accès réservé au personnel autorisé</Text>
@@ -186,6 +193,8 @@ const styles = StyleSheet.create({
   input: { flex: 1, fontSize: 16, color: 'black' },
   mainButton: { width: '100%', height: 55, backgroundColor: COLORS.primary, borderRadius: 15, justifyContent: 'center', alignItems: 'center', elevation: 3 },
   mainButtonText: { color: 'white', fontSize: 16, fontWeight: 'bold' },
+  forgotPinLink: { marginTop: 18, paddingVertical: 6 },
+  forgotPinLinkText: { color: COLORS.primary, fontSize: 14, fontWeight: '600' },
   securityNotice: { flexDirection: 'row', alignItems: 'center', marginTop: 30, gap: 8 },
   securityNoticeText: { color: COLORS.gray1, fontSize: 12, fontWeight: '500' }
 });
