@@ -35,11 +35,9 @@ export async function read_user(id, token = null) {
     if (response.ok) {
       return resultData;
     } else {
-      console.error("Erreur serveur read_user :", resultData);
       throw resultData;
     }
   } catch (error) {
-    console.error("Erreur réseau / API read_user :", error);
     throw error;
   }
 }
@@ -56,7 +54,6 @@ export async function update_user(id, { avatar, ...data }, token = null) {
     const parts = filename.split(".");
     const extension = parts.length > 1 ? parts[parts.length - 1].toLowerCase() : 'jpg';
     
-    // ICI : Remplacement définitif de generateMakeId par un ID unique basé sur le temps
     const uniqueId = Date.now() + Math.random().toString(36).substring(2, 11);
     
     formdata.append("avatar", {
@@ -86,21 +83,47 @@ export async function update_user(id, { avatar, ...data }, token = null) {
     const resultData = await response.json();
 
     if (response.ok) {
-      console.log("Mise à jour réussie :", resultData);
       return resultData;
     } else {
-      console.error("Erreur retournée par le serveur :", resultData);
       throw resultData;
     }
   } catch (error) {
-    console.error("Erreur réseau / API update_user :", error);
     throw error;
   }
 }
 
-// Exportation de toutes les fonctions
+/**
+ * Supprime définitivement un compte utilisateur
+ */
+export async function delete_user(id, token = null) {
+  const headers = {};
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+
+  try {
+    const response = await fetch(`${apiEndPoint}/user/${id}/`, {
+      method: 'DELETE',
+      headers: headers,
+    });
+
+    // Si le serveur renvoie du contenu (ex: message de confirmation), on le parse
+    // Sinon, on gère le statut de succès standard (ex: 204 No Content)
+    if (response.ok) {
+      const isJson = response.headers.get('content-type')?.includes('application/json');
+      return isJson ? await response.json() : { success: true };
+    } else {
+      const errorData = await response.json().catch(() => ({ detail: "Erreur de suppression" }));
+      throw errorData;
+    }
+  } catch (error) {
+    throw error;
+  }
+}
+
 export default {
   list_user,
   read_user,
   update_user,
+  delete_user,
 };

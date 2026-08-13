@@ -1,51 +1,253 @@
-import * as storage from "../storage/authStorage";
-import { getTokenByEmail, register } from "./Auth";
+import * as WebBrowser from "expo-web-browser";
+import * as jwtDecodeModule from "jwt-decode";
+import { apiEndPoint } from "../api/apiUrl";
+import { setAuthToken, setAuthUser } from "../storage/authStorage";
 
-export async function handleGoogleLoginFlow(accessToken, dispatch, router) {
+WebBrowser.maybeCompleteAuthSession();
+
+export async function handleGoogleAuthWithClerk(startOAuthFlow, clerkInstance) {
   try {
-    // 1. Récupérer les infos chez Google
-    const response = await fetch("https://www.googleapis.com/userinfo/v2/me", {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    });
-    const googleUser = await response.json();
+    const { createdSessionId, setActive, signIn, signUp } = await startOAuthFlow();
 
-    const userInfo = {
-      email: googleUser.email,
-      first_name: googleUser.given_name,
-      last_name: googleUser.family_name,
-      avatar: googleUser.picture,
-      provider: "Google",
-    };
+    if (createdSessionId) {
+      let email = "";
+      let firstName = "";
+      let lastName = "";
 
-    // 2. Vérifier si l'utilisateur existe dans ton backend Django
-    let data = await getTokenByEmail(userInfo.email);
-    let token = data?.token;
+      if (signUp) {
+        email = signUp.emailAddress;
+        firstName = signUp.firstName;
+        lastName = signUp.lastName;
+      }
 
-    // 3. Inscription automatique si le compte n'existe pas
-    if (!token) {
-      console.log("Nouveau compte Google, inscription...");
-      await register(userInfo);
-      const newData = await getTokenByEmail(userInfo.email);
-      token = newData.token;
-    }
+      if (!email && signIn) {
+        email = signIn.identifier; 
+        if (signIn.currentFirstFactorVerification?.externalVerificationRedirectUrl) {
+          firstName = signIn.userData?.firstName;
+          lastName = signIn.userData?.lastName;
+        }
+      }
 
-    // 4. Sauvegarde dans TON storage (tes fonctions)
-    if (token) {
-      await storage.setAuthToken(token); // Utilise ta fonction
-      await storage.setAuthUser(userInfo); // Utilise ta fonction
+      if (!email) {
+        await setActive({ session: createdSessionId });
+        await new Promise(resolve => setTimeout(resolve, 80));
 
-      // 5. Mise à jour de Redux
-      // Si tu n'as pas encore d'action onLogin, on envoie un objet simple
-      dispatch({ 
-        type: 'LOGIN_SUCCESS', 
-        payload: { token, user: userInfo } 
-      });
+        const currentUser = clerkInstance?.user || clerkInstance?.client?.activeSession?.user;
+        if (currentUser) {
+          email = currentUser.primaryEmailAddress?.emailAddress;
+          firstName = currentUser.firstName;
+          lastName = currentUser.lastName;
+        }
+      }
 
-      // 6. Redirection
-      router.replace('/(tabs)');
+      if (!email) {
+        throw new Error("Clerk email synchronization failed.");
+      }
+
+      let token = null;
+      let user = null;
+
+      try {
+        const data = await getTokenByEmail(email);
+        token = data.token;
+      } catch (e) {
+        // L'utilisateur n'existe pas encore sur l'API backend, traitement normal
+      }
+
+      if (!token) {
+        const userInfoForBackend = {
+          email,
+          first_name: firstName || "Utilisateur",
+          last_name: lastName || "Google",
+          address: "",
+          phone: "",
+          provider: "Google (Clerk)",
+        };
+        
+        await registerOnBackend(userInfoForBackend);
+        const data = await getTokenByEmail(email);
+        token = data.token;
+      }
+
+      const decodeFn = typeof jwtDecodeModule === 'function' 
+        ? jwtDecodeModule 
+        : (jwtDecodeModule.jwtDecode || jwtDecodeModule.default);
+
+      if (!decodeFn) {
+        throw new Error("JWT decoding library unavailable.");
+      }
+
+      const { user_id } = decodeFn(token);
+      user = await read_user(user_id, token); 
+
+      if (user && !user.id && user.user_id) {
+        user.id = user.user_id; 
+      }
+
+      await Promise.all([
+        setAuthToken({ refresh: null, access: token }),
+        setAuthUser(user)
+      ]);
+      
+      if (!clerkInstance?.user) {
+        await setActive({ session: createdSessionId });
+      }
+
+      return { success: true, token, user };
+    } else {
+      return { success: false, error: "Additional steps required" };
     }
   } catch (error) {
-    console.error("Erreur dans socialAuth:", error);
+    if (error.message?.includes("already signed in") || error.errors?.[0]?.code === "already_signed_in") {
+      return { success: true, alreadySignedIn: true };
+    }
     throw error;
   }
+}
+
+//
+
+export async function handleAppleAuthWithClerk(startOAuthFlow, clerkInstance) {
+  try {
+    const { createdSessionId, setActive, signIn, signUp } = await startOAuthFlow();
+
+    if (createdSessionId) {
+      let email = "";
+      let firstName = "";
+      let lastName = "";
+
+      // 1. Extraction via les données de création de compte (SignUp)
+      if (signUp) {
+        email = signUp.emailAddress;
+        firstName = signUp.firstName;
+        lastName = signUp.lastName;
+      }
+
+      // 2. Extraction via les données de connexion (SignIn)
+      if (!email && signIn) {
+        email = signIn.identifier; 
+        if (signIn.currentFirstFactorVerification?.externalVerificationRedirectUrl) {
+          firstName = signIn.userData?.firstName;
+          lastName = signIn.userData?.lastName;
+        }
+      }
+
+      // 3. Repli de sécurité via l'instance Clerk active
+      if (!email) {
+        await setActive({ session: createdSessionId });
+        await new Promise(resolve => setTimeout(resolve, 80));
+
+        const currentUser = clerkInstance?.user || clerkInstance?.client?.activeSession?.user;
+        if (currentUser) {
+          email = currentUser.primaryEmailAddress?.emailAddress;
+          firstName = currentUser.firstName;
+          lastName = currentUser.lastName;
+        }
+      }
+
+      if (!email) {
+        throw new Error("Clerk Apple email synchronization failed.");
+      }
+
+      let token = null;
+      let user = null;
+
+      try {
+        const data = await getTokenByEmail(email);
+        token = data.token;
+      } catch (e) {
+        // L'utilisateur n'existe pas encore sur l'API backend
+      }
+
+      // 4. Inscription automatique sur ton backend si le token n'existe pas
+      if (!token) {
+        const userInfoForBackend = {
+          email,
+          // Apple cache parfois le nom si l'utilisateur choisit "Masquer mon e-mail"
+          first_name: firstName || "Utilisateur",
+          last_name: lastName || "Apple", 
+          address: "",
+          phone: "",
+          provider: "Apple (Clerk)",
+        };
+        
+        await registerOnBackend(userInfoForBackend);
+        const data = await getTokenByEmail(email);
+        token = data.token;
+      }
+
+      const decodeFn = typeof jwtDecodeModule === 'function' 
+        ? jwtDecodeModule 
+        : (jwtDecodeModule.jwtDecode || jwtDecodeModule.default);
+
+      if (!decodeFn) {
+        throw new Error("JWT decoding library unavailable.");
+      }
+
+      const { user_id } = decodeFn(token);
+      user = await read_user(user_id, token); 
+
+      if (user && !user.id && user.user_id) {
+        user.id = user.user_id; 
+      }
+
+      await Promise.all([
+        setAuthToken({ refresh: null, access: token }),
+        setAuthUser(user)
+      ]);
+      
+      if (!clerkInstance?.user) {
+        await setActive({ session: createdSessionId });
+      }
+
+      return { success: true, token, user };
+    } else {
+      return { success: false, error: "Additional steps required" };
+    }
+  } catch (error) {
+    if (error.message?.includes("already signed in") || error.errors?.[0]?.code === "already_signed_in") {
+      return { success: true, alreadySignedIn: true };
+    }
+    throw error;
+  }
+
+}
+
+// --- Fonctions API Helpers ---
+async function getTokenByEmail(email) {
+  const response = await fetch(`${apiEndPoint}/gettoken_bymail/`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email }),
+  });
+  if (!response.ok) throw new Error("Token retrieval failed");
+  return await response.json();
+}
+
+async function read_user(user_id, token) {
+  const response = await fetch(`${apiEndPoint}/user/${user_id}/`, {
+    method: "GET",
+    headers: { "Authorization": `Bearer ${token}` }
+  });
+  if (!response.ok) throw new Error("User profile retrieval failed");
+  return await response.json();
+}
+
+async function registerOnBackend(userInfo) {
+  let formdata = new FormData();
+  const generatedPassword = Math.random().toString(36).slice(-10);
+  formdata.append("password", generatedPassword);
+  
+  Object.keys(userInfo).forEach((key) => formdata.append(key, userInfo[key]));
+
+  const response = await fetch(`${apiEndPoint}/register/`, {
+    method: "POST",
+    body: formdata,
+  });
+
+  if (!response.ok) {
+    throw new Error(`Registration failed with status: ${response.status}`);
+  }
+
+  return await response.json();
 }

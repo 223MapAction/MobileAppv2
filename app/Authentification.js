@@ -1,3 +1,4 @@
+import { useAuth, useClerk, useOAuth, useUser } from "@clerk/clerk-expo";
 import { FontAwesome } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
@@ -10,26 +11,13 @@ import {
   SafeAreaView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View
 } from 'react-native';
-import { authorize } from 'react-native-app-auth';
-import CountryPicker from 'react-native-country-picker-modal';
-import { requestOtp } from '../api/Auth'; // Import de ton service API
+import { requestOtp } from '../api/Auth';
+import { handleGoogleAuthWithClerk } from "../api/socialAuth";
 import { COLORS } from '../Composants/themeConfig';
-import { handleGoogleLoginFlow } from '../services/googleAuth'; // Ajuste le chemin selon ton projet
-
-// Configuration OAuth Google pour react-native-app-auth
-const googleConfig = {
-  issuer: 'https://accounts.google.com',
-  clientId: Platform.select({
-    ios: process.env.EXPO_PUBLIC_IOS_CLIENT_ID,
-    android: process.env.EXPO_PUBLIC_ANDROID_CLIENT_ID,
-  }),
-  redirectUrl: 'mapactionapp:/oauth2redirect', // Ton scheme synchronisé
-  scopes: ['openid', 'profile', 'email'],
-};
+import PhoneCountryInput from '../Composants/PhoneCountryInput';
 
 export default function LoginScreen() {
   const navigation = useNavigation();
@@ -40,55 +28,61 @@ export default function LoginScreen() {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // LOG DE SÉCURITÉ ET DE DIAGNOSTIC AU CHARGEMENT
+  const isAndroid = Platform.OS === 'android';
+
+  const { isSignedIn, isLoaded } = useAuth();
+  const { user: clerkUser } = useUser();
+  const { startOAuthFlow } = useOAuth({ strategy: "oauth_google" });
+
   useEffect(() => {
-    console.log("=== DIAGNOSTIC CONFIGURATION GOOGLE ===");
-    console.log("Plateforme détectée :", Platform.OS);
-    console.log("Clé Android (.env) :", process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID_ANDROID);
-    console.log("Clé iOS (.env) :", process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID_IOS);
-    console.log("Clé finale injectée dans googleConfig :", googleConfig.clientId);
-    console.log("Redirect URL configuré :", googleConfig.redirectUrl);
-    console.log("=======================================");
-  }, []);
-
-  // Fonction de connexion Google via react-native-app-auth
-  const handleGoogleSignIn = async () => {
-    console.log("-> Clic sur le bouton Google détecté.");
-    
-    if (!googleConfig.clientId) {
-      console.error("-> Erreur : Le clientId est vide ou undefined ! Vérifie ton fichier .env.");
-      Alert.alert("Erreur de configuration", "La clé d'authentification Google (clientId) est manquante.");
-      return;
+    if (isLoaded && isSignedIn && !loading) {
+      console.log("Utilisateur connecté Clerk détecté.");
     }
+  }, [isSignedIn, isLoaded]);
 
+  const clerk = useClerk();
+
+  const handleGoogleSignIn = async () => {
     setLoading(true);
     try {
-      console.log("-> Lancement du module natif d'authentification Google...");
-      // 1. Déclencement du flux natif Google
-      const authState = await authorize(googleConfig);
-      console.log("-> [SUCCESS] Jeton d'accès récupéré avec succès :", authState.accessToken);
-
-      // 2. Envoi du token à ton flux Django
-      const mockDispatch = (action) => console.log("-> Dispatch Redux :", action);
+      // Exécution de l'auth et de la récupération des données Django
+      const result = await handleGoogleAuthWithClerk(startOAuthFlow, clerk);
       
-      console.log("-> Envoi du token vers handleGoogleLoginFlow...");
-      await handleGoogleLoginFlow(authState.accessToken, mockDispatch, router);
-
+      if (result && result.success) {
+        console.log("Django Auth OK ! Synchronisation finale...");
+        
+        // On laisse une courte pause de sécurité pour s'assurer que le thread d'écriture a fini
+        await new Promise(resolve => setTimeout(resolve, 200));
+        
+        console.log("Redirection vers les onglets avec session active.");
+        
+        // CORRECTION : Remplacement de navigation.reset par router.replace d'expo-router 
+        // avec le paramètre de rafraîchissement natif propre pour forcer les requêtes initiales de tes composants
+        router.replace({
+          pathname: "/(tabs)",
+          params: { refresh: "true" }
+        });
+      }
     } catch (error) {
-      console.error("-> [ERROR] Échec de l'authentification Google :", error);
-      Alert.alert(
-        "Connexion annulée", 
-        "Impossible de se connecter avec Google. Vérifie tes paramètres ou réessaye."
-      );
+      Alert.alert("Erreur d'authentification", error.message || "Impossible de se connecter avec Google.");
     } finally {
       setLoading(false);
     }
   };
 
-  // Connexion classique par OTP
+  if (!isLoaded) {
+    return null; 
+  }
+
+    
   const handleAuth = async () => {
-    if (!phoneNumber || phoneNumber.length < 4) {
-      Alert.alert("Numéro invalide", "Veuillez saisir un numéro de téléphone correct.");
+    const cleanedNumber = phoneNumber.trim();
+    const isValidMaliNumber = /^\d{8}$/.test(cleanedNumber);
+    if (!isValidMaliNumber) {
+      Alert.alert(
+        "Numéro invalide", 
+        "Le numéro de téléphone doit comporter exactement 8 chiffres (ex: 76XXXXXX)."
+      );
       return;
     }
 
@@ -112,7 +106,6 @@ export default function LoginScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-
       <TouchableOpacity 
         style={styles.agentButton} 
         onPress={() => router.push('/AuthAgentTerrain')}
@@ -121,8 +114,6 @@ export default function LoginScreen() {
       </TouchableOpacity>
 
       <View style={styles.content}>
-        
-        {/* LOGO */}
         <View style={styles.logoContainer}>
           <Image 
             source={require('../assets/LogoMapAction.png')} 
@@ -131,7 +122,6 @@ export default function LoginScreen() {
           />
         </View>
 
-        {/* TITRE & DESCRIPTION */}
         <View style={styles.textSection}>
           <Text style={styles.title}>Authentifiez-vous</Text>
           <Text style={styles.description}>
@@ -139,29 +129,15 @@ export default function LoginScreen() {
           </Text>
         </View>
 
-        {/* INPUT TÉLÉPHONE AVEC DRAPEAU */}
-        <View style={styles.phoneInputContainer}>
-          <View style={styles.countryPickerSelector}>
-            <CountryPicker
-              countryCode={countryCode}
-              withFilter withFlag withCallingCode withEmoji
-              onSelect={(country) => {
-                setCountryCode(country.cca2);
-                setCallingCode(country.callingCode[0]);
-              }}
-            />
-            <Text style={styles.callingCodeText}>+{callingCode}</Text>
-          </View>
-          <TextInput
-            style={styles.input}
-            placeholder="Numéro de téléphone"
-            keyboardType="phone-pad"
-            value={phoneNumber}
-            onChangeText={setPhoneNumber}
-          />
-        </View>
+        <PhoneCountryInput
+          countryCode={countryCode}
+          callingCode={callingCode}
+          phoneNumber={phoneNumber}
+          onCountryChange={(cca2, calling) => { setCountryCode(cca2); setCallingCode(calling); }}
+          onPhoneNumberChange={setPhoneNumber}
+          containerStyle={{ marginBottom: 20 }}
+        />
 
-        {/* BOUTON S'AUTHENTIFIER */}
         <TouchableOpacity 
           style={[styles.mainButton, loading && { opacity: 0.8 }]} 
           onPress={handleAuth}
@@ -180,21 +156,18 @@ export default function LoginScreen() {
           <View style={styles.line} />
         </View>
 
-        {/* BOUTON GOOGLE NATIVE-APP-AUTH */}
         <TouchableOpacity 
           style={styles.socialButton} 
           onPress={handleGoogleSignIn}
           disabled={loading}
         >
           <FontAwesome name="google" size={20} color="#DB4437" />
-          <Text style={styles.socialButtonText}>Continuer avec Google</Text>
+          <Text style={styles.socialButtonText}>
+            {loading ? "Chargement..." : "Continuer avec Google"}
+          </Text>
         </TouchableOpacity>
 
-        {/* AUTRES BOUTONS */}
-        <TouchableOpacity style={styles.socialButton}>
-          <FontAwesome name="apple" size={20} color="black" />
-          <Text style={styles.socialButtonText}>Continuer avec Apple</Text>
-        </TouchableOpacity>
+
 
         <TouchableOpacity 
           style={styles.guestButton} 
@@ -202,7 +175,6 @@ export default function LoginScreen() {
         >
           <Text style={styles.guestButtonText}>Continuer sans compte</Text>
         </TouchableOpacity>
-
       </View>
     </SafeAreaView>
   );
@@ -218,10 +190,6 @@ const styles = StyleSheet.create({
   textSection: { alignItems: 'center', marginBottom: 35 },
   title: { fontSize: 32, fontWeight: 'bold', color: COLORS.secondary, marginBottom: 10 },
   description: { fontSize: 14, color: COLORS.gray1, textAlign: 'center', paddingHorizontal: 10, lineHeight: 20 },
-  phoneInputContainer: { flexDirection: 'row', width: '100%', height: 60, borderWidth: 1, borderColor: COLORS.gray2, borderRadius: 15, alignItems: 'center', paddingHorizontal: 15, backgroundColor: COLORS.white, marginBottom: 20 },
-  countryPickerSelector: { flexDirection: 'row', alignItems: 'center', borderRightWidth: 1, borderRightColor: COLORS.gray2, paddingRight: 10, marginRight: 15 },
-  callingCodeText: { fontSize: 16, fontWeight: '600', marginLeft: 5 },
-  input: { flex: 1, fontSize: 16, color: 'black' },
   mainButton: { width: '100%', height: 55, backgroundColor: COLORS.primary, borderRadius: 15, justifyContent: 'center', alignItems: 'center', elevation: 3 },
   mainButtonText: { color: 'white', fontSize: 16, fontWeight: 'bold' },
   dividerContainer: { flexDirection: 'row', alignItems: 'center', marginVertical: 30, width: '100%' },

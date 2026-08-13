@@ -1,75 +1,53 @@
+import { useAuth } from '@clerk/clerk-expo';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Dimensions, Image, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { read_user, update_user } from '../../api/user';
+import { delete_user, update_user } from '../../api/user';
 import { COLORS } from '../../Composants/themeConfig';
-import { clearAuthToken, clearAuthUser, getAuthToken, getAuthUser, setAuthUser } from '../../storage/authStorage';
+import { useProfileController } from '../../hooks/useProfileController';
+import { clearAuthToken, clearAuthUser, getAccessToken, getAuthUser, setAuthUser } from '../../storage/authStorage';
 
-const { width, height } = Dimensions.get('window');
+const { height } = Dimensions.get('window');
+
+const MenuItem = ({ icon, title, color = COLORS.primary, onPress }) => (
+  <TouchableOpacity style={styles.menuItem} onPress={onPress} activeOpacity={0.7}>
+    <View style={styles.menuLeft}>
+      <Ionicons name={icon} size={22} color={color} />
+      <Text style={[styles.menuText, { color: color === COLORS.primary ? COLORS.secondary : color }]}>
+        {title}
+      </Text>
+    </View>
+    <Ionicons name="chevron-forward" size={20} color={COLORS.gray1} />
+  </TouchableOpacity>
+);
 
 export default function ProfilScreen() {
-  const [user, setUser] = useState(null);
-  const [isLoadingUser, setIsLoadingUser] = useState(true);
+  const { signOut } = useAuth();
+  const { user, setUser, isLoadingUser, setIsLoadingUser, editForm, setEditForm, refreshProfile } =
+    useProfileController({
+      getLocalUser: getAuthUser,
+      getToken: getAccessToken,
+      persistUser: (freshUserData) => setAuthUser(freshUserData),
+      onError: () => {}, // Échec silencieux du rafraîchissement automatique en arrière-plan
+    });
   const [isPersonalInfoOpen, setIsPersonalInfoOpen] = useState(false);
-  
-  // --- ÉTATS POUR L'ÉDITION ---
   const [isEditing, setIsEditing] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
-  const [editForm, setEditForm] = useState({ first_name: '', last_name: '', phone: '', email: '' });
 
   const router = useRouter();
-
-  // Déclaration de la fonction de chargement/rafraîchissement utilisable partout
-  const rafraichirProfilUtilisateur = async () => {
-    try {
-      const localUser = await getAuthUser();
-      
-      if (localUser) {
-        const tokenData = await getAuthToken();
-        const token = tokenData?.access || tokenData;
-        
-        const freshUserData = await read_user(localUser.id, token); 
-        
-        if (freshUserData) {
-          await setAuthUser(freshUserData); 
-          setUser(freshUserData);
-          setEditForm({
-            first_name: freshUserData.first_name || '',
-            last_name: freshUserData.last_name || '',
-            phone: freshUserData.phone || '',
-            email: freshUserData.email || '',
-          });
-          return;
-        }
-      }
-      
-      if (localUser) {
-        setUser(localUser);
-        setEditForm({
-          first_name: localUser.first_name || '',
-          last_name: localUser.last_name || '',
-          phone: localUser.phone || '',
-          email: localUser.email || '',
-        });
-      }
-    } catch (error) {
-      console.error("Erreur rafraîchissement profil:", error);
-    }
-  };
 
   useEffect(() => {
     let isMounted = true;
     const initLoad = async () => {
-      await rafraichirProfilUtilisateur();
+      await refreshProfile();
       if (isMounted) setIsLoadingUser(false);
     };
     initLoad();
     return () => { isMounted = false; };
   }, []);
 
-  // --- FONCTION POUR SELECTIONNER UNE NOUVELLE IMAGE (CORRIGÉE POUR EXPO) ---
   const pickImage = async () => {
     const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
     
@@ -79,7 +57,7 @@ export default function ProfilScreen() {
     }
 
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: 'images', // Correction ici : 'images' remplace MediaTypeOptions.Images pour éviter le warning
+      mediaTypes: 'images',
       allowsEditing: true,
       aspect: [1, 1],
       quality: 0.7,
@@ -90,46 +68,34 @@ export default function ProfilScreen() {
     }
   };
 
-  // --- SAUVEGARDE DE L'AVATAR CORRIGÉE ---
   const handleSaveAvatar = async (imageUri) => {
     setIsUpdating(true);
     try {
-      const tokenData = await getAuthToken();
-      const token = tokenData?.access || tokenData;
-      
-      // On envoie l'objet simple, update_user va l'intercepter et créer le FormData autonome
+      const token = await getAccessToken();
+
       await update_user(user.id, { avatar: imageUri }, token);
-      
-      // Rafraîchissement des données de l'utilisateur
-      await rafraichirProfilUtilisateur();
+      await refreshProfile();
       
       Alert.alert("Succès", "Votre photo de profil a été mise à jour !");
     } catch (error) {
-      console.error("Erreur technique handleSaveAvatar:", error);
       Alert.alert("Erreur", "Impossible de mettre à jour la photo.");
     } finally {
       setIsUpdating(false);
     }
   };
 
-  // --- SAUVEGARDE DES INFORMATIONS TEXTUELLES + REFRESH ---
   const handleSaveProfileInfo = async () => {
-    if (!editForm.first_name.trim()) {
-      Alert.alert("Champ obligatoire", "Le prénom ne peut pas être vide.");
-      return;
-    }
-    if (!editForm.last_name.trim()) {
-      Alert.alert("Champ obligatoire", "Le nom ne peut pas être vide.");
+    if (!editForm.first_name.trim() || !editForm.last_name.trim()) {
+      Alert.alert("Champ obligatoire", "Le nom et le prénom ne peuvent pas être vides.");
       return;
     }
 
     setIsUpdating(true);
     try {
-      const tokenData = await getAuthToken();
-      const token = tokenData?.access || tokenData;
-      
+      const token = await getAccessToken();
+
       await update_user(user.id, editForm, token);
-      await rafraichirProfilUtilisateur();
+      await refreshProfile();
       
       setIsEditing(false);
       setIsPersonalInfoOpen(false); 
@@ -141,34 +107,87 @@ export default function ProfilScreen() {
     }
   };
 
-  const handleLogout = async () => {
-    try {
-      await clearAuthUser();
-      await clearAuthToken();
-      setUser(null);
-      router.replace('/Authentification'); 
-    } catch (error) {
-      console.error("Erreur logout:", error);
-    }
+const handleLogout = () => {
+    Alert.alert(
+      "Déconnexion",
+      "Êtes-vous sûr de vouloir vous déconnecter ?",
+      [
+        { text: "Annuler", style: "cancel" },
+        { 
+          text: "Se déconnecter", 
+          style: "destructive",
+          onPress: async () => {
+            try {
+              // 1. Déconnexion Clerk si disponible
+              if (typeof signOut === 'function') {
+                await signOut().catch(() => null);
+              }
+              
+              // 2. On redirige d'abord vers l'écran d'authentification 
+              // pour quitter l'écran de profil actuel proprement avant de muter son état.
+              router.replace('/Authentification'); 
+              
+              // 3. On nettoie les données locales en arrière-plan juste après
+              setTimeout(async () => {
+                await clearAuthUser().catch(() => null);
+                await clearAuthToken().catch(() => null);
+                setUser(null);
+              }, 100);
+
+            } catch (error) {
+              Alert.alert("Erreur", "Impossible de procéder à la déconnexion.");
+            }
+          }
+        }
+      ]
+    );
   };
+
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      "Suppression du compte",
+      "Êtes-vous absolument sûr de vouloir supprimer votre compte ? Cette action est irréversible et effacera définitivement vos données.",
+      [
+        { text: "Annuler", style: "cancel" },
+        { 
+          text: "Supprimer définitivement", 
+          style: "destructive",
+          onPress: async () => {
+            try {
+              if (typeof signOut === 'function') {
+                await signOut().catch(() => null);
+              }
+              const token = await getAccessToken();
+
+              // Appel API pour supprimer le compte côté backend
+              await delete_user(user.id, token);
+
+              // Redirection immédiate avant le nettoyage d'état
+              router.replace('/Authentification');
+
+              // Nettoyage asynchrone sécurisé
+              setTimeout(async () => {
+                await clearAuthUser().catch(() => null);
+                await clearAuthToken().catch(() => null);
+                setUser(null);
+                Alert.alert("Compte supprimé", "Votre compte a été supprimé avec succès.");
+              }, 100);
+
+            } catch (error) {
+              Alert.alert("Erreur", "Impossible de supprimer le compte pour le moment.");
+            }
+          }
+        }
+      ]
+    );
+  };
+
 
   const firstName = (user?.first_name || '').trim();
   const lastName = (user?.last_name || '').trim();
   const fullName = `${firstName} ${lastName}`.trim() || user?.email || 'Utilisateur';
   const avatarUrl = user?.avatar || null;
   const initials = `${firstName?.[0] || ''}${lastName?.[0] || ''}`.toUpperCase() || 'U';
-
-  const MenuItem = ({ icon, title, color = COLORS.primary, onPress }) => (
-    <TouchableOpacity style={styles.menuItem} onPress={onPress} activeOpacity={0.7}>
-      <View style={styles.menuLeft}>
-        <Ionicons name={icon} size={22} color={color} />
-        <Text style={[styles.menuText, { color: color === COLORS.primary ? COLORS.secondary : color }]}>
-          {title}
-        </Text>
-      </View>
-      <Ionicons name="chevron-forward" size={20} color={COLORS.gray1} />
-    </TouchableOpacity>
-  );
 
   if (isLoadingUser) {
     return (
@@ -179,24 +198,62 @@ export default function ProfilScreen() {
   }
 
   if (!user) {
-    return (
-      <View style={styles.emptyContainer}>
-        <Ionicons name="person-circle-outline" size={100} color={COLORS.gray1} />
-        <Text style={styles.emptyTitle}>Vous n'êtes pas connecté</Text>
-        <Text style={styles.emptySubtitle}>Connectez-vous pour accéder à votre profil et suivre vos incidents.</Text>
-        <TouchableOpacity 
-          style={styles.loginButton} 
-          onPress={() => router.replace('/Authentification')}
-        >
-          <Text style={styles.loginButtonText}>Se connecter</Text>
-        </TouchableOpacity>
-      </View>
+   return (
+      <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+        {/* 1. Zone d'invitation à la connexion */}
+        <View style={styles.unauthCardContainer}>
+          <View style={styles.unauthCard}>
+            <View style={styles.unauthIconWrapper}>
+              <Ionicons name="person-circle" size={80} color={COLORS.primary} />
+            </View>
+            <Text style={styles.unauthTitle}>Rejoignez-nous</Text>
+            <Text style={styles.unauthSubtitle}>
+              Connectez-vous à votre compte citoyen pour suivre vos démarches et accéder à votre profil complet.
+            </Text>
+            
+            <TouchableOpacity 
+              style={styles.unauthLoginBtn} 
+              activeOpacity={0.8}
+              onPress={() => router.replace('/Authentification')}
+            >
+              <Ionicons name="log-in-outline" size={20} color="white" style={{ marginRight: 8 }} />
+              <Text style={styles.unauthLoginBtnText}>Se connecter / S'inscrire</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* 2. Section d'Assistance accessible sans compte */}
+        <View style={[styles.menuContainer, { marginTop: 10 }]}>
+          <Text style={styles.sectionTitle}>Besoin d'aide ?</Text>
+          <View style={styles.sectionCard}>
+            <MenuItem 
+              icon="help-circle-outline" 
+              title="Foire Aux Questions (FAQ)" 
+              onPress={() => router.push('/FAQScreen')}
+            />
+            <MenuItem 
+              icon="document-text-outline" 
+              title="Conditions Générales d'Utilisation" 
+              onPress={() => router.push('/CUG')} 
+            />
+            <MenuItem 
+              icon="mail-outline" 
+              title="Contacter le support client" 
+              onPress={() => router.push('/ContactUsScreen')} 
+            />
+          </View>
+          
+          <Text style={styles.unauthFooterText}>
+            Version de l'application 1.0.0
+          </Text>
+        </View>
+        <View style={{ height: 40 }} />
+      </ScrollView>
     );
   }
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      {/* Header Profil */}
       <View style={styles.header}>
         <View style={styles.imageContainer}>
           {avatarUrl ? (
@@ -233,7 +290,6 @@ export default function ProfilScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Menu Options */}
       <View style={styles.menuContainer}>
         <Text style={styles.sectionTitle}>Compte</Text>
         <View style={styles.sectionCard}>
@@ -241,26 +297,25 @@ export default function ProfilScreen() {
             setIsEditing(false);
             setIsPersonalInfoOpen(true);
           }} />
-          <MenuItem icon="information-circle-outline" title="À propos de nous" />
+          <MenuItem icon="information-circle-outline" title="À propos de nous" onPress={() => router.push('/AproposScreen')}/>
         </View>
 
         <Text style={styles.sectionTitle}>Assistance</Text>
         <View style={styles.sectionCard}>
-          <MenuItem icon="help-circle-outline" title="FAQ" />
-          <MenuItem icon="document-text-outline" title="Conditions et termes" />
-          <MenuItem icon="mail-outline" title="Contactez-nous" />
+          <MenuItem icon="help-circle-outline" title="FAQ" onPress={() => router.push('/FAQScreen')}/>
+          <MenuItem icon="document-text-outline" title="Conditions et termes" onPress={() =>  router.push('/CUG')} />
+          <MenuItem icon="mail-outline" title="Contactez-nous" onPress={() =>  router.push('/ContactUsScreen')} />
         </View>
 
         <Text style={styles.sectionTitle}>Connexion</Text>
         <View style={styles.sectionCard}>
-          <MenuItem icon="trash-outline" title="Supprimer mon compte" onPress={handleLogout} />
+          <MenuItem icon="trash-outline" title="Supprimer mon compte" onPress={handleDeleteAccount} />
           <MenuItem icon="log-out-outline" title="Déconnexion" color="#FF4444" onPress={handleLogout} />
         </View>
       </View>
 
       <View style={{ height: 40 }} />
 
-      {/* Modal Informations Personnelles */}
       <Modal visible={isPersonalInfoOpen} transparent animationType="slide">
         <View style={styles.modalBackdrop}>
           <View style={styles.modalCard}>
@@ -307,7 +362,7 @@ export default function ProfilScreen() {
                 </View>
 
                 <View style={styles.inputGroup}>
-                  <Text style={styles.inputLabel}>Email (Optionnel)</Text>
+                  <Text style={styles.inputLabel}>Email <Text style={styles.requiredAsterisk}>*</Text></Text>
                   <TextInput 
                     style={styles.textInput}
                     keyboardType="email-address"
@@ -383,11 +438,75 @@ const styles = StyleSheet.create({
   menuItem: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16 },
   menuLeft: { flexDirection: 'row', alignItems: 'center' },
   menuText: { fontSize: 16, marginLeft: 12, fontWeight: '500' },
-  emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 30 },
-  emptyTitle: { fontSize: 22, fontWeight: 'bold', color: COLORS.secondary, marginTop: 20 },
-  emptySubtitle: { fontSize: 14, color: COLORS.gray1, textAlign: 'center', marginTop: 10, marginBottom: 30 },
-  loginButton: { backgroundColor: COLORS.primary, paddingHorizontal: 40, paddingVertical: 15, borderRadius: 30 },
-  loginButtonText: { color: 'white', fontWeight: 'bold', fontSize: 16 },
+
+  unauthCardContainer: {
+    paddingHorizontal: 20,
+    paddingTop: height * 0.05,
+    paddingBottom: 20,
+  },
+  unauthCard: {
+    backgroundColor: 'white',
+    borderRadius: 24,
+    padding: 25,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#F0F0F0',
+    // Ombres élégantes
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+  },
+  unauthIconWrapper: {
+    backgroundColor: COLORS.primary + '10', // Teinte très claire de ta couleur principale
+    padding: 10,
+    borderRadius: 50,
+    marginBottom: 15,
+  },
+  unauthTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: COLORS.secondary,
+    marginBottom: 8,
+  },
+  unauthSubtitle: {
+    fontSize: 14,
+    color: COLORS.gray1,
+    textAlign: 'center',
+    lineHeight: 20,
+    paddingHorizontal: 10,
+    marginBottom: 25,
+  },
+  unauthLoginBtn: {
+    flexDirection: 'row',
+    backgroundColor: COLORS.primary,
+    paddingVertical: 14,
+    paddingHorizontal: 25,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+    // Ombre sous le bouton d'action principal
+    elevation: 2,
+    shadowColor: COLORS.primary,
+    shadowOpacity: 0.2,
+    shadowRadius: 5,
+    shadowOffset: { width: 0, height: 3 },
+  },
+  unauthLoginBtnText: {
+    color: 'white',
+    fontWeight: '600',
+    fontSize: 16,
+  },
+  unauthFooterText: {
+    fontSize: 11,
+    textAlign: 'center',
+    color: COLORS.gray1,
+    marginTop: 15,
+    opacity: 0.6,
+  },
+
   modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
   modalCard: { backgroundColor: 'white', padding: 25, borderTopLeftRadius: 25, borderTopRightRadius: 25 },
   modalHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20 },

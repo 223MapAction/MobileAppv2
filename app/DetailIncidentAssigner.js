@@ -1,0 +1,284 @@
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useEffect, useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  Image,
+  Linking,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
+} from 'react-native';
+// 1. IMPORTATION DE SAFE AREA INSETS
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import AudioPlayer from '../Composants/AudioPlayer';
+import { COLORS } from '../Composants/themeConfig';
+import VideoPlayer from '../Composants/VideoPlayer';
+
+export default function DetailIncidentAgentScreen() {
+  const router = useRouter();
+  const params = useLocalSearchParams();
+
+  // 2. RECUPERATION DES INSETS DE SECURITE (HAUT, BAS, ETC.)
+  const insets = useSafeAreaInsets();
+
+  const [incidentDetail, setIncidentDetail] = useState(null);
+
+  useEffect(() => {
+    if (params.incident_detail) {
+      try {
+        const decodedDetails = JSON.parse(params.incident_detail);
+        setIncidentDetail(decodedDetails);
+
+
+      } catch (error) {
+        console.error("Erreur de décodage des détails de l'incident :", error);
+        Alert.alert("Erreur", "Impossible de charger les détails de cette mission.");
+      }
+    }
+  }, [params.incident_detail]);
+
+const handleOpenNavigation = () => {
+    const lat = incidentDetail?.lattitude;
+    const lon = incidentDetail?.longitude;
+
+    if (!lat || !lon || lat === "null" || lon === "null") {
+      Alert.alert("Localisation indisponible", "Cet incident ne possède pas de coordonnées géographiques précises.");
+      return;
+    }
+
+    const label = encodeURIComponent(incidentDetail.title || "Incident Terrain");
+    
+    // Protocoles natifs pour les applications installées
+    const url = Platform.select({
+      ios: `maps:0,0?q=${lat},${lon}(${label})`,
+      android: `geo:0,0?q=${lat},${lon}(${label})`
+    });
+
+    Linking.canOpenURL(url)
+      .then((supported) => {
+        if (supported) {
+          return Linking.openURL(url);
+        } else {
+          // 🚀 CORRECTION : Utilisation de l'URL universelle officielle de Google Maps
+          const browserUrl = `https://www.google.com/maps/search/?api=1&query=${lat},${lon}`;
+          return Linking.openURL(browserUrl);
+        }
+      })
+      .catch((err) => {
+        console.error("Erreur de lancement du GPS :", err);
+        // Au cas où canOpenURL échoue complètement durant les tests
+        const browserUrl = `https://www.google.com/maps/search/?api=1&query=${lat},${lon}`;
+        Linking.openURL(browserUrl).catch(() => {
+          Alert.alert("Erreur", "Impossible d'ouvrir une application de cartographie.");
+        });
+      });
+  };
+
+  const getEtatBadge = (etat) => {
+    switch (etat) {
+      case 'taken_into_account':
+        return { label: 'Pris en compte', bg: '#EFF6FF', text: '#1E40AF' };
+      case 'declared':
+        return { label: 'Déclaré', bg: '#FEF3C7', text: '#D97706' };
+      case 'resolved':
+        return { label: 'Résolu', bg: '#D1FAE5', text: '#10B981' };
+      default:
+        return { label: etat || 'Inconnu', bg: COLORS.gray100, text: COLORS.gray700 };
+    }
+  };
+
+  if (!incidentDetail) {
+    return (
+      <View style={styles.centerContainer}>
+        <ActivityIndicator size="large" color={COLORS.primary} />
+        <Text style={styles.loadingText}>Chargement des détails...</Text>
+      </View>
+    );
+  }
+
+  const badge = getEtatBadge(incidentDetail.etat);
+
+  return (
+    <View style={{ flex: 1, backgroundColor: COLORS.gray50 }}>
+      {/* 3. ADAPTATION DU PADDING INFERIEUR DU SCROLLVIEW POUR AJOUTER LA MARGE DU SAFE AREA + TAILLE DES BOUTONS */}
+      <ScrollView 
+        style={{ flex: 1 }} 
+        bounces={false} 
+        contentContainerStyle={{ paddingBottom: 100 + insets.bottom }}
+      >
+        <View style={styles.imageContainer}>
+          {incidentDetail.photo ? (
+            <Image source={{ uri: incidentDetail.photo }} style={styles.mainImage} />
+          ) : (
+            <View style={styles.noImageView}>
+              <Ionicons name="image-outline" size={60} color={COLORS.gray400} />
+              <Text style={styles.noImageText}>Aucune illustration photo</Text>
+            </View>
+          )}
+          
+          <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+            <Ionicons name="arrow-back" size={24} color={COLORS.gray800} />
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.contentCard}>
+          <View style={styles.headerRow}>
+            <Text style={styles.title}>{incidentDetail.title || params.incident_title || "Sans titre"}</Text>
+            <View style={[styles.statusBadge, { backgroundColor: badge.bg }]}>
+              <Text style={[styles.statusText, { color: badge.text }]}>{badge.label}</Text>
+            </View>
+          </View>
+
+          <View style={styles.metaBox}>
+            <View style={styles.metaRow}>
+              <MaterialCommunityIcons name="map-marker-radius" size={18} color={COLORS.primary} />
+              <Text style={styles.metaText}>
+                <Text style={{ fontWeight: '700' }}>Zone :</Text> {incidentDetail.zone || "Non spécifiée"}
+              </Text>
+            </View>
+            
+            {incidentDetail.lattitude && incidentDetail.longitude !== "null" && (
+              <View style={[styles.metaRow, { marginTop: 8 }]}>
+                <MaterialCommunityIcons name="compass-outline" size={18} color={COLORS.gray1} />
+                <Text style={styles.coordinatesText}>
+                  Lat: {incidentDetail.lattitude} | Lon: {incidentDetail.longitude}
+                </Text>
+              </View>
+            )}
+          </View>
+
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Description terrain</Text>
+            <Text style={styles.descriptionText}>
+              {incidentDetail.description?.trim() ? incidentDetail.description : "L'informateur n'a pas ajouté de description textuelle."}
+            </Text>
+          </View>
+
+          {incidentDetail.audio && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Note Vocale jointe</Text>
+              <AudioPlayer uri={incidentDetail.audio} />
+            </View>
+          )}
+
+          {incidentDetail.video && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Vidéo jointe</Text>
+              <VideoPlayer uri={incidentDetail.video} posterUri={incidentDetail.photo} />
+            </View>
+          )}
+        </View>
+      </ScrollView>
+
+      {/* 4. MODIFICATION ICI : On applique dynamiquement la marge basse du système */}
+      <View style={[
+        styles.actionToolbar, 
+        { paddingBottom: insets.bottom > 0 ? insets.bottom + 6 : 14 }
+      ]}>
+        <TouchableOpacity 
+          style={styles.navButton} 
+          onPress={handleOpenNavigation}
+          activeOpacity={0.8}
+        >
+          <MaterialCommunityIcons name="google-maps" size={22} color="white" />
+          <Text style={styles.navButtonText}>Aller sur la zone</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity 
+          style={styles.reportButton} 
+          onPress={() => {
+            router.push({
+              pathname: '/FormulaireReportScreen', 
+              params: { incidentId: incidentDetail.id }
+            });
+          }}
+          activeOpacity={0.8}
+        >
+          {/* <MaterialCommunityIcons name="clipboard-text-plus-outline" size={22} color={COLORS.primary} /> */}
+          <Text style={styles.reportButtonText}>Faire un rapport</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.gray50 },
+  loadingText: { marginTop: 12, color: COLORS.gray1, fontSize: 14 },
+  imageContainer: { width: '100%', height: 260, backgroundColor: COLORS.gray200, position: 'relative' },
+  mainImage: { width: '100%', height: '100%', resizeMode: 'cover' },
+  noImageView: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.gray200 },
+  noImageText: { marginTop: 8, color: COLORS.gray500, fontWeight: '500', fontSize: 14 },
+  backButton: { position: 'absolute', top: 50, left: 20, backgroundColor: 'white', padding: 10, borderRadius: 25, elevation: 4, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.15, shadowRadius: 3 },
+  contentCard: { flex: 1, backgroundColor: 'white', borderTopLeftRadius: 24, borderTopRightRadius: 24, marginTop: -20, padding: 20, shadowColor: '#000', shadowOffset: { width: 0, height: -3 }, shadowOpacity: 0.05, shadowRadius: 5, elevation: 5 },
+  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 },
+  title: { fontSize: 22, fontWeight: '800', color: COLORS.secondary, flex: 1, marginRight: 12 },
+  statusBadge: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10 },
+  statusText: { fontSize: 12, fontWeight: '700' },
+  metaBox: { backgroundColor: COLORS.gray100, padding: 14, borderRadius: 14, marginBottom: 20 },
+  metaRow: { flexDirection: 'row', alignItems: 'center' },
+  metaText: { marginLeft: 8, fontSize: 14, color: COLORS.gray700 },
+  coordinatesText: { marginLeft: 8, fontSize: 12, color: COLORS.gray500, fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace' },
+  section: { marginBottom: 24 },
+  sectionTitle: { fontSize: 15, fontWeight: '700', color: COLORS.gray800, marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 },
+  descriptionText: { fontSize: 15, color: COLORS.gray600, lineHeight: 22 },
+
+  actionToolbar: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: 'white',
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    // J'ai enlevé le paddingBottom fixe d'ici pour le mettre en ligne (inline style)
+    borderTopWidth: 1,
+    borderColor: COLORS.gray200,
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 12
+  },
+  navButton: {
+    flex: 1,
+    backgroundColor: '#059669',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    borderRadius: 14,
+    gap: 8,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+  },
+  navButtonText: {
+    color: 'white',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  reportButton: {
+    flex: 1,
+    backgroundColor: 'white',
+    borderWidth: 1.5,
+    borderColor: COLORS.primary,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 13,
+    borderRadius: 14,
+    gap: 8,
+  },
+  reportButtonText: {
+    color: COLORS.primary,
+    fontSize: 15,
+    fontWeight: '700',
+  }
+});

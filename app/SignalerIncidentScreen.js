@@ -1,11 +1,11 @@
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import NetInfo from '@react-native-community/netinfo';
 import { useRoute } from '@react-navigation/native';
-import { Audio } from 'expo-av';
+
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
-import * as VideoThumbnails from 'expo-video-thumbnails'; // <-- Nouvel import
+import * as VideoThumbnails from 'expo-video-thumbnails';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator, Alert, Dimensions, Image, ScrollView,
@@ -14,6 +14,8 @@ import {
 import { envoyerIncident } from "../api/incidents";
 import { OfflineManager } from '../api/offlineManager';
 import { COLORS } from '../Composants/themeConfig';
+import { useAudioRecorder } from '../hooks/useAudioRecorder';
+import { useIncidentLocation } from '../hooks/useIncidentLocation';
 import { getAuthUser } from '../storage/authStorage';
 
 const { width } = Dimensions.get('window');
@@ -23,80 +25,46 @@ export default function SignalerIncidentScreen() {
   const route = useRoute();
   const { photoUri: initialPhoto } = route.params || {};
 
-  // ÉTATS GENERAUX
+  // ÉTATS GÉNÉRAUX
   const [description, setDescription] = useState('');
-  const [location, setLocation] = useState(null);
-  const [loadingLocation, setLoadingLocation] = useState(true);
-  const [locationError, setLocationError] = useState(false);
   const [sending, setSending] = useState(false);
   const [user, setUser] = useState(null);
 
-  // ÉTATS MULTIMEDIA
+  const { location, loadingLocation, locationError, zoneName, obtenirPosition } =
+    useIncidentLocation({ accuracy: Location.Accuracy.Balanced });
+
+  const { recording, audioUri, audioLevels, startRecording, stopRecording, deleteAudio } =
+    useAudioRecorder({
+      idleLevels: [1, 1, 1, 1, 1],
+      normalizeLevel: (metering) => Math.max(4, Math.min(24, (metering + 160) / 6)),
+      maxLevelsCount: 20,
+      startErrorMessage: "Impossible de démarrer l'enregistrement audio.",
+      stopErrorLogPrefix: 'Erreur stop audio:',
+    });
+
+  // ÉTATS MULTIMÉDIA
   const [photoUri, setPhotoUri] = useState(initialPhoto);
   const [videoUri, setVideoUri] = useState(null);
-  const [videoThumbnail, setVideoThumbnail] = useState(null); // <-- Vignette vidéo
-  const [audioUri, setAudioUri] = useState(null);
-  const [recording, setRecording] = useState(null);
-  const [audioLevels, setAudioLevels] = useState([1, 1, 1, 1, 1]); 
+  const [videoThumbnail, setVideoThumbnail] = useState(null);
 
   // Charger les infos de l'utilisateur connecté
   useEffect(() => {
     const loadUser = async () => {
-      const userData = await getAuthUser();
-      setUser(userData);
+      try {
+        const userData = await getAuthUser();
+        setUser(userData);
+      } catch (e) {
+        setUser(null);
+      }
     };
     loadUser();
   }, []);
-
-  // Gestion de la géolocalisation
-  const obtenirPosition = async () => {
-    setLoadingLocation(true);
-    setLocationError(false);
-    
-    try {
-      const serviceEnabled = await Location.hasServicesEnabledAsync();
-      if (!serviceEnabled) {
-        setLocationError(true);
-        setLoadingLocation(false);
-        return;
-      }
-
-      let { status } = await Location.getForegroundPermissionsAsync();
-      
-      if (status !== 'granted') {
-        const request = await Location.requestForegroundPermissionsAsync();
-        status = request.status;
-      }
-
-      if (status !== 'granted') {
-        setLocationError(true);
-        setLoadingLocation(false);
-        return;
-      }
-
-      let currentLocation = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced,
-      });
-      
-      let address = await Location.reverseGeocodeAsync({
-        latitude: currentLocation.coords.latitude,
-        longitude: currentLocation.coords.longitude,
-      });
-      
-      setLocation({ coords: currentLocation.coords, address: address[0] });
-    } catch (error) {
-      console.error("Erreur localisation:", error);
-      setLocationError(true);
-    } finally {
-      setLoadingLocation(false);
-    }
-  };
 
   useEffect(() => {
     obtenirPosition();
   }, []);
 
-  // Enregistrement de la vidéo et extraction de la vignette
+  // Enregistrement et vérification stricte de la durée de la vidéo
   const handlePickVideo = async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') {
@@ -104,152 +72,105 @@ export default function SignalerIncidentScreen() {
       return;
     }
 
-    let result = await ImagePicker.launchCameraAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Videos,
-      allowsEditing: true,
-      aspect: [16, 9],
-      quality: 0.7,
-    });
-
-    if (!result.canceled) {
-      const sourceUri = result.assets[0].uri;
-      setVideoUri(sourceUri);
-
-      // Génération de la bannière visuelle à partir de la première seconde du fichier
-      try {
-        const { uri } = await VideoThumbnails.getThumbnailAsync(sourceUri, {
-          time: 1000,
-        });
-        setVideoThumbnail(uri);
-      } catch (e) {
-        console.warn("Erreur génération vignette vidéo:", e);
-      }
-    }
-  };
-
-  // Audio : Démarrer l'enregistrement
-  async function startRecording() {
     try {
-      const permission = await Audio.requestPermissionsAsync();
-      if (permission.status === "granted") {
-        await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true });
-        
-        const recordingOptions = {
-          ...Audio.RecordingOptionsPresets.HIGH_QUALITY,
-          android: {
-            ...Audio.RecordingOptionsPresets.HIGH_QUALITY.android,
-            meteringEnabled: true,
-          },
-          ios: {
-            ...Audio.RecordingOptionsPresets.HIGH_QUALITY.ios,
-            meteringEnabled: true,
-          },
-        };
+      let result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Videos,
+        allowsEditing: true,
+        aspect: [16, 9],
+        quality: 0.7,
+        videoMaxDuration: 10,
+      });
 
-        const { recording } = await Audio.Recording.createAsync(
-          recordingOptions,
-          (status) => {
-            if (status.metering !== undefined) {
-              const normalizedLevel = Math.max(4, Math.min(35, (status.metering + 160) / 4));
-              setAudioLevels((prev) => {
-                const newLevels = [...prev, normalizedLevel];
-                if (newLevels.length > 15) newLevels.shift();
-                return newLevels;
-              });
-            }
-          },
-          100
-        );
-        
-        setRecording(recording);
+      if (!result.canceled) {
+        const asset = result.assets[0];
+        const sourceUri = asset.uri;
+        const durationMs = asset.duration;
+
+        if (durationMs && durationMs > 10500) {
+          Alert.alert(
+            "Vidéo trop longue",
+            `Votre vidéo fait ${(durationMs / 1000).toFixed(1)}s. La durée maximale autorisée est de 10 secondes. Veuillez recommencer.`
+          );
+          return;
+        }
+
+        setVideoUri(sourceUri);
+
+        try {
+          const { uri } = await VideoThumbnails.getThumbnailAsync(sourceUri, {
+            time: 1000,
+          });
+          setVideoThumbnail(uri);
+        } catch (e) {
+          setVideoThumbnail(null);
+        }
       }
     } catch (err) {
-      Alert.alert('Erreur', 'Impossible de démarrer l\'enregistrement');
+      Alert.alert("Erreur", "Impossible d'enregistrer la vidéo.");
     }
-  }
-
-  // Audio : Arrêter l'enregistrement
-  async function stopRecording() {
-    try {
-      setRecording(null);
-      await recording.stopAndUnloadAsync();
-      const uri = recording.getURI();
-      setAudioUri(uri);
-      setAudioLevels([1, 1, 1, 1, 1]);
-    } catch (error) {
-      // Gestion erreur silencieuse
-    }
-  }
-
-  // Soumission de l'incident (Gère le online et le offline storage)
- const handleSendIncident = async () => {
-  if (!location) {
-    Alert.alert("Erreur", "Impossible d'envoyer l'incident sans position GPS.");
-    return;
-  }
-
-  const network = await NetInfo.fetch();
-  setSending(true);
-
-  const incidentData = {
-    user_id: user?.id || null, 
-    title: description ? description.substring(0, 25) + "..." : "Incident anonyme",
-    description: description || "",
-    lattitude: location.coords.latitude.toString(),
-    longitude: location.coords.longitude.toString(),
-    zone: location.address?.city || "Bamako",
-    photo: photoUri || "", 
-    audio: audioUri || "", 
-    video: videoUri || "", 
-    etat: "declared",
   };
 
-  try {
-    if (network.isConnected) {
-      // ---- CAS 1 : EN LIGNE ----
-      const result = await envoyerIncident(incidentData);
+  // Soumission de l'incident
+  const handleSendIncident = async () => {
+    if (!location) {
+      Alert.alert("Erreur", "Impossible d'envoyer l'incident sans position GPS.");
+      return;
+    }
+
+    setSending(true);
+
+    const incidentData = {
+      user_id: user?.id || null, 
+      title: description ? (description.substring(0, 25) + "...") : "Incident anonyme",
+      description: description || "",
+      lattitude: location.coords.latitude.toString(),
+      longitude: location.coords.longitude.toString(),
+      zone: zoneName,
+      photo: photoUri || "", 
+      audio: audioUri || "", 
+      video: videoUri || "", 
+      etat: "declared",
+    };
+
+    try {
+      const network = await NetInfo.fetch();
       
-      if (result.ok) {
-        // SI L'UTILISATEUR EST ANONYME (Pas connecté)
-        if (!user) {
-          // On enregistre directement la réponse officielle du serveur dans son historique permanent
-          // result.data contient déjà l'ID unique généré par la base de données et le created_at réel
-          await OfflineManager.saveToAnonymousHistory(result.data);
-        }
+      if (network.isConnected) {
+        const result = await envoyerIncident(incidentData);
         
-        Alert.alert("Succès", user ? "Incident envoyé avec succès !" : "Incident anonyme envoyé avec succès !");
-        router.replace('/(tabs)');
+        if (result && result.ok) {
+          if (!user) {
+            await OfflineManager.saveToAnonymousHistory(result.data);
+          }
+          Alert.alert("Succès", user ? "Incident envoyé avec succès !" : "Incident anonyme envoyé avec succès !");
+          router.replace('/(tabs)');
+        } else {
+          throw new Error("Erreur serveur");
+        }
       } else {
-        throw new Error("Erreur serveur");
+        const saved = await OfflineManager.saveForLater(incidentData);
+        if (saved) {
+          Alert.alert(
+            "Mode Hors-ligne", 
+            "Pas de connexion. L'incident a été enregistré localement et sera envoyé dès que vous aurez internet.",
+            [{ text: "OK", onPress: () => router.replace('/(tabs)') }]
+          );
+        }
       }
-    } else {
-      // ---- CAS 2 : HORS LIGNE (Pas d'internet) ----
-      const saved = await OfflineManager.saveForLater(incidentData);
-      if (saved) {
+    } catch (error) {
+      const savedFallback = await OfflineManager.saveForLater(incidentData);
+      if (savedFallback) {
         Alert.alert(
-          "Mode Hors-ligne", 
-          "Pas de connexion. L'incident a été enregistré localement et sera envoyé dès que vous aurez internet.",
+          "Incident sauvegardé", 
+          "Une erreur réseau est survenue, mais votre incident a été mis en sécurité localement.",
           [{ text: "OK", onPress: () => router.replace('/(tabs)') }]
         );
       }
+    } finally {
+      setSending(false);
     }
-  } catch (error) {
-    // ---- CAS 3 : ERREUR RÉSEAU / TIMEOUT ----
-    console.error("Erreur durant l'envoi :", error);
-    const savedFallback = await OfflineManager.saveForLater(incidentData);
-    if (savedFallback) {
-      Alert.alert(
-        "Incident sauvegardé", 
-        "Une erreur réseau est survenue, mais votre incident a été mis en sécurité localement.",
-        [{ text: "OK", onPress: () => router.replace('/(tabs)') }]
-      );
-    }
-  } finally {
-    setSending(false);
-  }
-};
+  };
 
-  // Écran d'erreur si la géolocalisation fait défaut
   if (!loadingLocation && locationError) {
     return (
       <View style={styles.containerBlocked}>
@@ -299,13 +220,12 @@ export default function SignalerIncidentScreen() {
             style={[styles.card, videoUri && styles.cardActive]} 
             onPress={handlePickVideo}
           >
-            {/* Affichage dynamique : Vignette vidéo ou icône par défaut */}
             {videoThumbnail ? (
               <Image source={{ uri: videoThumbnail }} style={styles.cardImage} />
             ) : (
               <Ionicons name={videoUri ? "videocam" : "videocam-outline"} size={40} color={videoUri ? COLORS.primary : "gray"} />
             )}
-            <Text style={[styles.cardText, !videoUri && {color: 'gray'}]}>Vidéo</Text>
+            <Text style={[styles.cardText, !videoUri && {color: 'gray'}]}>Vidéo (Max 10s)</Text>
             {videoUri && (
               <View style={styles.checkBadge}>
                 <Ionicons name="checkmark-circle" size={20} color={COLORS.primary} />
@@ -328,38 +248,45 @@ export default function SignalerIncidentScreen() {
           />
         </View>
 
-        {/* COMPOSANT AUDIO STYLE MESSAGERIE */}
+        {/* COMPOSANT AUDIO SIMPLE ET INTEGRÉ */}
         <View style={styles.inputGroup}>
-          <Text style={styles.label}>Audio (Facultatif)</Text>
-          <TouchableOpacity 
-            style={[styles.actionRow, audioUri && {borderColor: COLORS.primary, borderWidth: 2}]} 
-            onPress={recording ? stopRecording : startRecording}
-          >
-            <View style={styles.textContainer}>
-              <Text style={styles.actionTitle}>
-                {recording ? "Enregistrement en cours..." : audioUri ? "Vocal enregistré" : "Ajouter un vocal"}
-              </Text>
-              
-              {recording ? (
+          <Text style={styles.label}>Audio (Max 10s)</Text>
+          <View style={[styles.audioContainer, audioUri && styles.audioContainerActive]}>
+            {recording ? (
+              // En cours d'enregistrement
+              <View style={styles.audioActiveRow}>
+                <View style={styles.pulseDot} />
                 <View style={styles.waveContainer}>
                   {audioLevels.map((level, index) => (
                     <View key={index} style={[styles.waveBar, { height: level }]} />
                   ))}
                 </View>
-              ) : (
-                <Text style={styles.actionSub}>
-                  {audioUri ? "Appuyez pour réenregistrer" : "Appuyez pour enregistrer"}
-                </Text>
-              )}
-            </View>
-
-            <View style={[styles.iconCircleRight, recording && {backgroundColor: '#e74c3c'}]}>
-              <MaterialIcons name={recording ? "stop" : "mic-none"} size={26} color="white" />
-            </View>
-          </TouchableOpacity>
+                <TouchableOpacity style={styles.stopIconBtn} onPress={stopRecording}>
+                  <MaterialIcons name="stop" size={24} color="#e74c3c" />
+                </TouchableOpacity>
+              </View>
+            ) : audioUri ? (
+              // Audio enregistré
+              <View style={styles.audioActiveRow}>
+                <View style={styles.audioSuccessContainer}>
+                  <Ionicons name="checkmark-circle" size={20} color={COLORS.primary} />
+                  <Text style={styles.audioSuccessText}>Vocal enregistré</Text>
+                </View>
+                <TouchableOpacity style={styles.trashIconBtn} onPress={deleteAudio}>
+                  <Ionicons name="trash-outline" size={20} color="#e74c3c" />
+                </TouchableOpacity>
+              </View>
+            ) : (
+              // En attente d'enregistrement
+              <TouchableOpacity style={styles.audioPlaceholderBtn} onPress={startRecording}>
+                <MaterialIcons name="mic-none" size={22} color="gray" style={{ marginRight: 8 }} />
+                <Text style={styles.audioPlaceholderText}>Appuyer pour enregistrer un vocal</Text>
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
 
-        {/* MODULE DE RECOGNITION DE POSITION INTERNE */}
+        {/* MODULE DE GÉOLOCALISATION */}
         <View style={styles.locationGroup}>
           <Text style={styles.label}>Position de l'incident</Text>
           <View style={styles.locationContainer}>
@@ -369,7 +296,7 @@ export default function SignalerIncidentScreen() {
                 <ActivityIndicator size="small" color={COLORS.primary} />
               ) : (
                 <>
-                  <Text style={styles.addressText}>{location?.address?.city || 'Bamako'}, {location?.address?.street || 'Position actuelle'}</Text>
+                  <Text style={styles.addressText}>{zoneName}, {location?.address?.street || 'Position actuelle'}</Text>
                   <Text style={styles.coordsText}>{location?.coords.latitude.toFixed(5)}, {location?.coords.longitude.toFixed(5)}</Text>
                 </>
               )}
@@ -413,11 +340,73 @@ const styles = StyleSheet.create({
   inputGroup: { marginBottom: 20 },
   label: { fontSize: 15, fontWeight: '600', color: COLORS.secondary, marginBottom: 8 },
   textArea: { backgroundColor: 'white', borderRadius: 12, padding: 15, height: 100, borderColor: COLORS.gray2, borderWidth: 1, fontSize: 16 },
-  actionRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'white', padding: 15, borderRadius: 12, borderColor: COLORS.gray2, borderWidth: 1, justifyContent: 'space-between' },
-  textContainer: { flex: 1 },
-  iconCircleRight: { width: 45, height: 45, borderRadius: 22.5, backgroundColor: COLORS.primary, justifyContent: 'center', alignItems: 'center' },
-  actionTitle: { fontSize: 16, fontWeight: '600' },
-  actionSub: { fontSize: 13, color: 'gray' },
+  
+  // NOUVEAU STYLE AUDIO SIMPLE ET EMBARQUÉ
+  audioContainer: {
+    backgroundColor: 'white',
+    borderRadius: 12,
+    borderColor: COLORS.gray2,
+    borderWidth: 1,
+    height: 54,
+    justifyContent: 'center',
+    paddingHorizontal: 15,
+  },
+  audioContainerActive: {
+    borderColor: COLORS.primary,
+    borderWidth: 1.5,
+  },
+  audioPlaceholderBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    height: '100%',
+  },
+  audioPlaceholderText: {
+    fontSize: 15,
+    color: 'gray',
+  },
+  audioActiveRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    height: '100%',
+  },
+  audioSuccessContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  audioSuccessText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: COLORS.primary,
+    marginLeft: 8,
+  },
+  trashIconBtn: {
+    padding: 8,
+  },
+  stopIconBtn: {
+    padding: 8,
+  },
+  pulseDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#e74c3c',
+  },
+  waveContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flex: 1,
+    height: '100%',
+    paddingHorizontal: 15,
+  },
+  waveBar: {
+    width: 3,
+    backgroundColor: '#e74c3c',
+    marginHorizontal: 1.5,
+    borderRadius: 1.5,
+  },
+
   locationGroup: { marginBottom: 30 },
   locationContainer: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10 },
   locationTextData: { marginLeft: 12, flex: 1 },
@@ -426,7 +415,6 @@ const styles = StyleSheet.create({
   submitBtn: { backgroundColor: COLORS.primary, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingVertical: 16, borderRadius: 12 },
   submitBtnText: { color: 'white', fontSize: 17, fontWeight: 'bold' },
   
-  // Interface bloquée (Absence GPS)
   containerBlocked: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 30, backgroundColor: '#fcfcfc' },
   blockedTitle: { fontSize: 22, fontWeight: 'bold', marginTop: 20, color: '#2c3e50' },
   blockedText: { fontSize: 15, color: '#7f8c8d', textAlign: 'center', marginTop: 10, marginBottom: 30, lineHeight: 22 },
@@ -434,8 +422,4 @@ const styles = StyleSheet.create({
   retryBtnText: { color: 'white', fontSize: 16, fontWeight: 'bold' },
   cancelBtn: { width: '100%', paddingVertical: 15, alignItems: 'center' },
   cancelBtnText: { color: '#7f8c8d', fontSize: 16, fontWeight: '600' },
-  
-  // Onde d'enregistrement audio
-  waveContainer: { flexDirection: 'row', alignItems: 'center', height: 40, marginTop: 5 },
-  waveBar: { width: 3, backgroundColor: '#e74c3c', marginHorizontal: 2, borderRadius: 2 },
 });

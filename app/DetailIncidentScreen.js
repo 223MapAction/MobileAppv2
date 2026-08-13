@@ -5,8 +5,10 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, Dimensions, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { getIncidentByIdOnline } from '../api/incidents';
 import { OfflineManager } from '../api/offlineManager';
+import AudioPlayer from '../Composants/AudioPlayer';
 import { COLORS } from '../Composants/themeConfig';
-import { getAuthToken } from '../storage/authStorage';
+import VideoPlayer from '../Composants/VideoPlayer';
+import { getAccessToken } from '../storage/authStorage';
 
 const { width } = Dimensions.get('window');
 
@@ -22,14 +24,21 @@ export default function DetailIncidentScreen() {
       setLoading(true);
       try {
         if (isLocal === 'true') {
-          const localHistory = await OfflineManager.getAnonymousHistory();
-          const found = localHistory.find(item => 
+          // Un incident local peut être soit en attente d'envoi (file
+          // d'attente offline, citoyen connecté ou anonyme), soit un
+          // incident anonyme déjà synchronisé (historique dédié) —
+          // on cherche dans les deux réserves.
+          const [pendingIncidents, anonymousHistory] = await Promise.all([
+            OfflineManager.getPendingIncidents(),
+            OfflineManager.getAnonymousHistory(),
+          ]);
+          const localItems = [...pendingIncidents, ...anonymousHistory];
+          const found = localItems.find(item =>
             (item.id?.toString() === id || item.id_local?.toString() === id)
           );
           setIncident(found);
         } else {
-          const tokenData = await getAuthToken();
-          const token = tokenData?.access || tokenData;
+          const token = await getAccessToken();
 
           if (token) {
             const result = await getIncidentByIdOnline(id, token);
@@ -159,15 +168,7 @@ export default function DetailIncidentScreen() {
         {incident.audio && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Note vocal</Text>
-            <View style={styles.audioPlayerContainer}>
-              <TouchableOpacity style={styles.playButton}>
-                <Ionicons name="play" size={18} color="white" style={{ marginLeft: 2 }} />
-              </TouchableOpacity>
-              <View style={styles.waveformContainer}>
-                <Text style={styles.waveformPlaceholder}>|||||||||||||||||||||||||||||||||||||||||||||||||||||</Text>
-              </View>
-              <Text style={styles.audioDuration}>0:30</Text>
-            </View>
+            <AudioPlayer uri={incident.audio} />
           </View>
         )}
 
@@ -175,14 +176,7 @@ export default function DetailIncidentScreen() {
         {incident.video && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Vidéo</Text>
-            <View style={styles.videoContainer}>
-              <Image source={{ uri: incident.photo || incident.video }} style={styles.videoThumbnail} />
-              <View style={styles.videoOverlay}>
-                <TouchableOpacity style={styles.videoPlayCircle}>
-                  <Ionicons name="play" size={28} color="black" style={{ marginLeft: 3 }} />
-                </TouchableOpacity>
-              </View>
-            </View>
+            <VideoPlayer uri={incident.video} posterUri={incident.photo} />
           </View>
         )}
 
@@ -192,7 +186,7 @@ export default function DetailIncidentScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#ffffff' },
+  container: { flex: 1, backgroundColor: COLORS.white },
   centered: { justifyContent: 'center', alignItems: 'center' },
   header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingTop: 50, paddingBottom: 15 },
   backButton: { marginRight: 15 },
@@ -213,15 +207,6 @@ const styles = StyleSheet.create({
   sectionValue: { fontSize: 15, color: '#7f8c8d', lineHeight: 20 },
   statusBadge: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6, alignSelf: 'flex-start' },
   statusText: { fontSize: 11, fontWeight: '700', letterSpacing: 0.5 },
-  audioPlayerContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f8f9fa', padding: 10, borderRadius: 12, marginTop: 4 },
-  playButton: { backgroundColor: '#3498db', width: 36, height: 36, borderRadius: 18, justifyContent: 'center', alignItems: 'center' },
-  waveformContainer: { flex: 1, marginHorizontal: 12, overflow: 'hidden', justifyContent: 'center' },
-  waveformPlaceholder: { color: '#bdc3c7', letterSpacing: -1, fontSize: 16 },
-  audioDuration: { fontSize: 14, color: '#333', fontWeight: '500' },
-  videoContainer: { width: '100%', height: 180, borderRadius: 16, overflow: 'hidden', position: 'relative', marginTop: 4 },
-  videoThumbnail: { width: '100%', height: '100%' },
-  videoOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.15)', justifyContent: 'center', alignItems: 'center' },
-  videoPlayCircle: { backgroundColor: 'rgba(255,255,255,0.75)', width: 55, height: 55, borderRadius: 27.5, justifyContent: 'center', alignItems: 'center' },
   errorText: { fontSize: 15, color: '#7f8c8d', marginBottom: 15 },
   backButtonText: { padding: 10 }
 });

@@ -1,116 +1,200 @@
-import { Ionicons } from '@expo/vector-icons';
+import { FontAwesome } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
-    SafeAreaView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View
+  ActivityIndicator,
+  Alert,
+  Image,
+  KeyboardAvoidingView,
+  Platform,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
 } from 'react-native';
+import { loginAgent } from '../api/AuthAgent';
 import { COLORS } from '../Composants/themeConfig';
+import PhoneCountryInput from '../Composants/PhoneCountryInput';
+import { getAuthUser } from '../storage/authStorageAgent';
 
-export default function AuthAgentTerrainScreen() {
+export default function AuthAgentTerrain() {
   const router = useRouter();
-  const [otp, setOtp] = useState(['', '', '', '', '', '']);
+
+  const [countryCode, setCountryCode] = useState('ML');
+  const [callingCode, setCallingCode] = useState('223');
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [pinCode, setPinCode] = useState('');
   const [loading, setLoading] = useState(false);
-  const inputs = useRef([]);
 
-  // --- GESTION DE LA SAISIE DU CODE ---
-  const handleChange = (text, index) => {
-    const newOtp = [...otp];
-    newOtp[index] = text;
-    setOtp(newOtp);
+  useEffect(() => {
+    console.log("=== DIAGNOSTIC ESPACE AGENT TERRAIN ===");
+    console.log("Initialisation du formulaire Agent de terrain");
+    console.log("=======================================");
+  }, []);
 
-    if (text.length !== 0 && index < 5) {
-      inputs.current[index + 1].focus();
+  // Sécurité : si cet écran est atteint directement (ex. bouton "Espace
+  // Agent") alors qu'une session valide (non expirée) existe déjà, passer
+  // directement à l'espace agent sans réafficher le formulaire.
+  useEffect(() => {
+    const checkExistingSession = async () => {
+      const existingAgent = await getAuthUser();
+      if (existingAgent) {
+        router.replace('/(tabs_agent)');
+      }
+    };
+    checkExistingSession();
+  }, []);
+
+  const handleAgentAuth = async () => {
+    if (!phoneNumber || phoneNumber.length < 4) {
+      Alert.alert("Numéro invalide", "Veuillez saisir un numéro de téléphone correct.");
+      return;
     }
-  };
-
-  const handleKeyPress = (e, index) => {
-    if (e.nativeEvent.key === 'Backspace' && index > 0 && otp[index] === '') {
-      inputs.current[index - 1].focus();
+    if (!pinCode || pinCode.length !== 4) {
+      Alert.alert("Code PIN invalide", "Le code PIN doit comporter 4 chiffres.");
+      return;
     }
-  };
-
-  // --- NAVIGATION DIRECTE VERS LES TABS ---
-  const handleVerifyCode = () => {
-    if (otp.join('').length < 6) return;
 
     setLoading(true);
+    const fullPhoneNumber = `+${callingCode}${phoneNumber}`;
+    
+    const result = await loginAgent(fullPhoneNumber, pinCode);
+    setLoading(false);
 
-    // Simulation rapide avant redirection
-    setTimeout(() => {
-      setLoading(false);
-      
-      // Redirection brute vers tes onglets
-      router.replace('/(tabs_agent)');
-    }, 800);
+    if (result.ok) {
+      const { access, user } = result.data; 
+
+      console.log("-> [CHECK] Faut-il changer le PIN ?", user.must_change_pin);
+
+      if (user.must_change_pin) {
+        Alert.alert(
+          "Sécurité requise", 
+          "C'est votre première connexion. Vous devez modifier votre code PIN pour continuer.",
+          [
+            { 
+              text: "Continuer", 
+              onPress: () => router.push({
+                pathname: '/ChangePinScreen',
+                params: { 
+                  oldPinFromLogin: pinCode,
+                  tokenFromLogin: access 
+                }
+              }) 
+            }
+          ]
+        );
+      } else {
+        router.replace('/(tabs_agent)'); 
+      }
+    } else {
+      const errorMessage = result.error?.detail || result.error?.message || "Numéro de téléphone ou code PIN incorrect.";
+      Alert.alert("Échec de connexion", errorMessage);
+    }
   };
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Bouton Retour */}
+      {/* Le bouton retour reste fixe en haut de l'écran pour être toujours accessible */}
       <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-        <Ionicons name="arrow-back" size={24} color={COLORS.secondary} />
+        <FontAwesome name="arrow-left" size={20} color={COLORS.secondary} />
       </TouchableOpacity>
 
-      <View style={styles.content}>
-        <View style={styles.iconCircle}>
-          <Ionicons name="shield-checkmark" size={40} color={COLORS.primary} />
-        </View>
-
-        <Text style={styles.title}>Code de confirmation</Text>
-        
-        <Text style={styles.description}>
-          Se connecter avec le code fourni par l'organisation
-        </Text>
-
-        {/* CHAMPS DE SAISIE */}
-        <View style={styles.otpContainer}>
-          {otp.map((digit, index) => (
-            <TextInput
-              key={index}
-              style={styles.otpInput}
-              keyboardType="number-pad"
-              maxLength={1}
-              value={digit}
-              onChangeText={(text) => handleChange(text, index)}
-              onKeyPress={(e) => handleKeyPress(e, index)}
-              ref={(ref) => (inputs.current[index] = ref)}
-              autoFocus={index === 0}
-            />
-          ))}
-        </View>
-
-        {/* BOUTON VALIDER */}
-        <TouchableOpacity 
-          style={[styles.mainButton, otp.join('').length < 6 && { backgroundColor: '#9CA3AF' }]}
-          disabled={otp.join('').length < 6 || loading}
-          onPress={handleVerifyCode}
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
+        style={{ flex: 1 }}
+      >
+        <ScrollView 
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
         >
-          {loading ? (
-            <ActivityIndicator color="white" />
-          ) : (
-            <Text style={styles.mainButtonText}>Valider le code</Text>
-          )}
-        </TouchableOpacity>
-      </View>
+          <View style={styles.logoContainer}>
+            <Image source={require('../assets/LogoMapAction.png')} style={styles.logo} resizeMode="contain" />
+          </View>
+
+          <View style={styles.textSection}>
+            <Text style={styles.title}>Authentifiez-vous</Text>
+            <Text style={styles.description}>
+              Veuillez vous authentifier pour pouvoir {"\n"}accéder à votre compte agent
+            </Text>
+          </View>
+
+          <PhoneCountryInput
+            countryCode={countryCode}
+            callingCode={callingCode}
+            phoneNumber={phoneNumber}
+            onCountryChange={(cca2, calling) => { setCountryCode(cca2); setCallingCode(calling); }}
+            onPhoneNumberChange={setPhoneNumber}
+            containerStyle={{ marginBottom: 15 }}
+          />
+
+          <View style={styles.pinInputContainer}>
+            <View style={styles.pinIconSelector}>
+              <FontAwesome name="lock" size={22} color={COLORS.gray1} style={{ width: 25, textAlign: 'center' }} />
+            </View>
+            <TextInput
+              style={styles.input}
+              placeholder="Code PIN"
+              keyboardType="numeric"
+              maxLength={4}
+              secureTextEntry={true}
+              value={pinCode}
+              onChangeText={setPinCode}
+            />
+          </View>
+
+          <TouchableOpacity 
+            style={[styles.mainButton, loading && { opacity: 0.8 }]} 
+            onPress={handleAgentAuth}
+            disabled={loading}
+          >
+            {loading ? <ActivityIndicator color="white" /> : <Text style={styles.mainButtonText}>S'authentifier</Text>}
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.forgotPinLink}
+            onPress={() => router.push('/ForgotPinScreen')}
+          >
+            <Text style={styles.forgotPinLinkText}>Code PIN oublié ?</Text>
+          </TouchableOpacity>
+
+          <View style={styles.securityNotice}>
+            <FontAwesome name="shield" size={14} color={COLORS.gray1} />
+            <Text style={styles.securityNoticeText}>Accès réservé au personnel autorisé</Text>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: 'white' },
-  backButton: { position: 'absolute', top: 50, left: 20, zIndex: 10, padding: 8 },
-  content: { flex: 1, paddingHorizontal: 25, justifyContent: 'center', alignItems: 'center' },
-  iconCircle: { width: 80, height: 80, borderRadius: 40, backgroundColor: '#EFF6FF', justifyContent: 'center', alignItems: 'center', marginBottom: 20 },
-  title: { fontSize: 24, fontWeight: 'bold', color: COLORS.secondary, marginBottom: 15 },
-  description: { fontSize: 14, color: COLORS.gray1, textAlign: 'center', lineHeight: 22, marginBottom: 40, paddingHorizontal: 10 },
-  otpContainer: { flexDirection: 'row', justifyContent: 'space-between', width: '100%', marginBottom: 40 },
-  otpInput: { width: 45, height: 55, borderWidth: 1, borderColor: COLORS.gray2, borderRadius: 12, textAlign: 'center', fontSize: 20, fontWeight: 'bold', backgroundColor: COLORS.white, color: COLORS.primary },
-  mainButton: { width: '100%', height: 55, backgroundColor: COLORS.primary, borderRadius: 15, justifyContent: 'center', alignItems: 'center', elevation: 2 },
+  backButton: { position: 'absolute', top: Platform.OS === 'ios' ? 50 : 20, left: 20, width: 40, height: 40, justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.white, borderRadius: 20, zIndex: 99, elevation: 2 },
+  
+  // Utilisation de scrollContent à la place de content
+  scrollContent: { 
+    paddingHorizontal: 25, 
+    alignItems: 'center',
+    paddingBottom: 40, // Marge en bas pour respirer lors du scroll clavier levé
+    paddingTop: 50
+  },
+  
+  logoContainer: { marginTop: 30, marginBottom: 30 },
+  logo: { width: 120, height: 120 },
+  textSection: { alignItems: 'center', marginBottom: 35 },
+  title: { fontSize: 32, fontWeight: 'bold', color: COLORS.secondary, marginBottom: 10 },
+  description: { fontSize: 14, color: COLORS.gray1, textAlign: 'center', paddingHorizontal: 10, lineHeight: 20 },
+  pinInputContainer: { flexDirection: 'row', width: '100%', height: 60, borderWidth: 1, borderColor: COLORS.gray2, borderRadius: 15, alignItems: 'center', paddingHorizontal: 15, backgroundColor: COLORS.white, marginBottom: 25 },
+  pinIconSelector: { flexDirection: 'row', alignItems: 'center', borderRightWidth: 1, borderRightColor: COLORS.gray2, paddingRight: 15, marginRight: 15, justifyContent: 'center' },
+  input: { flex: 1, fontSize: 16, color: 'black' },
+  mainButton: { width: '100%', height: 55, backgroundColor: COLORS.primary, borderRadius: 15, justifyContent: 'center', alignItems: 'center', elevation: 3 },
   mainButtonText: { color: 'white', fontSize: 16, fontWeight: 'bold' },
+  forgotPinLink: { marginTop: 18, paddingVertical: 6 },
+  forgotPinLinkText: { color: COLORS.primary, fontSize: 14, fontWeight: '600' },
+  securityNotice: { flexDirection: 'row', alignItems: 'center', marginTop: 30, gap: 8 },
+  securityNoticeText: { color: COLORS.gray1, fontSize: 12, fontWeight: '500' }
 });

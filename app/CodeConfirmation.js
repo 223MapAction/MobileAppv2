@@ -74,6 +74,16 @@ export default function OtpConfirmationScreen() {
 
       const { refresh, access, user } = result.data;
 
+      if (user && user.user_type !== 'citizen') {
+        console.log(`Accès refusé : type de compte détecté -> ${user.user_type}`);
+        
+        Alert.alert(
+          "Accès restreint", 
+          "Cette application est réservée aux citoyens. Si vous êtes un agent de terrain, veuillez retourner à l'accueil et vous connecter depuis l'Espace Agent."
+        );
+        return; // On stoppe tout ici : les tokens et le profil ne sont pas enregistrés en local
+      }
+
       await setAuthToken({ refresh, access });
       await setAuthUser(user);
 
@@ -121,7 +131,7 @@ export default function OtpConfirmationScreen() {
         <View style={styles.resendContainer}>
           <Text style={styles.resendText}>Vous n'avez pas reçu de code ?</Text>
           <TouchableOpacity onPress={handleResend} disabled={timer > 0}>
-            <Text style={[styles.resendBtn, timer > 0 && { color: '#9CA3AF' }]}>
+            <Text style={[styles.resendBtn, timer > 0 && { color: COLORS.gray400 }]}>
               Renvoyer le code {timer > 0 ? `dans ${timer}s` : ''}
             </Text>
           </TouchableOpacity>
@@ -129,7 +139,7 @@ export default function OtpConfirmationScreen() {
 
         {/* BOUTON CONTINUER */}
         <TouchableOpacity 
-          style={[styles.mainButton, otp.join('').length < 6 && { backgroundColor: '#9CA3AF' }]}
+          style={[styles.mainButton, otp.join('').length < 6 && { backgroundColor: COLORS.gray400 }]}
           disabled={otp.join('').length < 6 || loading}
           onPress={handleContinue}
         >

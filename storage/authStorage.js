@@ -1,8 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-
-const AUTH_USER_KEY = 'auth_user';
-const AUTH_TOKEN_KEY = 'auth_token';
-const TERMS_ACCEPTED_KEY = 'terms_accepted';
+import { AUTH_TOKEN_KEY, AUTH_USER_KEY, ONBOARDING_VIEWED_KEY, TERMS_ACCEPTED_KEY } from './storageKeys';
 
 export async function getAuthUser() {
   const raw = await AsyncStorage.getItem(AUTH_USER_KEY);
@@ -22,6 +19,13 @@ export async function getAuthToken() {
   return raw ? JSON.parse(raw) : null;
 }
 
+// getAuthToken() renvoie {access, refresh} (ou null) — ce helper renvoie
+// directement le token d'accès utilisable dans un header Authorization.
+export async function getAccessToken() {
+  const tokens = await getAuthToken();
+  return tokens?.access || tokens;
+}
+
 export async function setAuthToken(tokens) {
   await AsyncStorage.setItem(AUTH_TOKEN_KEY, JSON.stringify(tokens));
 }
@@ -38,3 +42,20 @@ export async function getTermsAccepted() {
 export async function setTermsAccepted(accepted) {
   await AsyncStorage.setItem(TERMS_ACCEPTED_KEY, String(accepted));
 }
+
+export const getOnboardingViewed = async () => {
+  try {
+    const value = await AsyncStorage.getItem(ONBOARDING_VIEWED_KEY);
+    return value === 'true';
+  } catch (e) {
+    return false;
+  }
+};
+
+export const setOnboardingViewed = async () => {
+  try {
+    await AsyncStorage.setItem(ONBOARDING_VIEWED_KEY, 'true');
+  } catch (e) {
+    console.error("Erreur sauvegarde onboarding", e);
+  }
+};
