@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "766020206387",
+    "project_id": "mapaction-5a78d",
+    "storage_bucket": "mapaction-5a78d.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:766020206387:android:917a7b433104066779c846",
+        "android_client_info": {
+          "package_name": "com.uwaish.MapActionApp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyApTROqASFk5dWQmI9smxdYFUQ8DUZ-0dc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

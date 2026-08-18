@@ -43,3 +43,8 @@ app-example
 # generated native folders
 /ios
 /android
+
+# Documents de travail
+*.docx
+
+Notifs.txt

@@ -12,7 +12,7 @@ export async function fetchNotifications() {
       throw new Error("No authentication token found");
     }
 
-    const response = await fetch(`${apiEndPoint}/my-incidents/notifications/`, {
+    const response = await fetch(`${apiEndPoint}/notifications/`, {
       method: "GET",
       headers: {
         "Authorization": `Bearer ${token}`,

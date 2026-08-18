@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { verifyOtpCode } from '../api/Auth';
 import { COLORS } from '../Composants/themeConfig';
+import { registerPushToken } from '../hooks/usePushNotifications';
 import { setAuthToken, setAuthUser } from '../storage/authStorage';
 
 export default function OtpConfirmationScreen() {
@@ -86,6 +87,7 @@ export default function OtpConfirmationScreen() {
 
       await setAuthToken({ refresh, access });
       await setAuthUser(user);
+      registerPushToken();
 
       navigation.reset({
         index: 0,
