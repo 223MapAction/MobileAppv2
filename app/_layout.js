@@ -9,6 +9,7 @@ import { OfflineManager } from '../api/offlineManager';
 import { OfflineManagerAgent } from '../api/OfflineManagerAgent';
 import { COLORS } from '../Composants/themeConfig';
 import ErrorBoundary from '../Composants/ErrorBoundary';
+import { registerPushToken, usePushNotificationListeners } from '../hooks/usePushNotifications';
 
 const CLERK_PUBLISHABLE_KEY = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY;
 
@@ -23,6 +24,16 @@ const tokenCache = {
 
 export default function RootLayout() {
   const router = useRouter();
+
+  usePushNotificationListeners();
+
+  // Ré-enregistre le token FCM au démarrage si une session citoyen existe
+  // déjà (relance de l'app) — après une connexion réussie, l'enregistrement
+  // se fait directement depuis l'écran de login (voir CodeConfirmation.js
+  // et services/googleAuth.js).
+  useEffect(() => {
+    registerPushToken();
+  }, []);
 
   useEffect(() => {
     const handleDeepLink = (event) => {

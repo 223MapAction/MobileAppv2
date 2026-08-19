@@ -1,4 +1,5 @@
 import { getTokenByEmail, register } from "../api/Auth"; // Ajuste le chemin vers tes requêtes API
+import { registerPushToken } from "../hooks/usePushNotifications";
 import * as storage from "../storage/authStorage";
 
 /**
@@ -53,8 +54,9 @@ export async function handleGoogleLoginFlow(accessToken, dispatch, router) {
       console.log("Authentification réussie ! Sauvegarde des identifiants...");
       
       // Sauvegarde dans ton AsyncStorage / SecureStore via tes fonctions dédiées
-      await storage.setAuthToken(token); 
-      await storage.setAuthUser(userInfo); 
+      await storage.setAuthToken(token);
+      await storage.setAuthUser(userInfo);
+      registerPushToken();
 
       // 5. Mise à jour de ton état global (Redux, Zustand ou Context)
       if (dispatch) {

@@ -10,7 +10,8 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.uwaish.mapactionapp",
+      "bundleIdentifier": "com.uwaish.MapActionAppv2",
+      "googleServicesFile": "./GoogleService-Info.plist",
       "infoPlist": {
         "CFBundleURLTypes": [
           {
@@ -27,7 +28,8 @@
         "foregroundImage": "./assets/icon.png",
         "backgroundColor": "#FFFFFF"
       },
-      "package": "com.uwaish.mapactionapp",
+      "package": "com.uwaish.MapActionApp",
+      "googleServicesFile": "./google-services.json",
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "intentFilters": [
@@ -74,7 +76,10 @@
           }
         }
       ],
-      "expo-web-browser"
+      "expo-web-browser",
+      "@react-native-firebase/app",
+      "expo-notifications",
+      "@react-native-firebase/messaging"
     ],
     "experiments": {
       "typedRoutes": true,
