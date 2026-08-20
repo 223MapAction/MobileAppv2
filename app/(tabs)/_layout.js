@@ -1,34 +1,43 @@
 import { Ionicons } from '@expo/vector-icons'; // Inclus dans Expo
+import { useFocusEffect } from '@react-navigation/native';
 import { Tabs, useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 // CORRECTION : Ajout de Text dans les imports de react-native
 import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { fetchNotifications } from '../../api/notificationCitizen';
 import mapActionLogo from "../../assets/LogoMapAction.png";
 import { COLORS } from '../../Composants/themeConfig';
+import { getActiveAccessToken } from '../../hooks/usePushNotifications';
 
 export default function TabLayout() {
   const [unreadCount, setUnreadCount] = useState(0);
   const router = useRouter();
 
-  useEffect(() => {
-    let isMounted = true;
+  // useFocusEffect (pas un simple useEffect) : la cloche doit se
+  // resynchroniser à chaque retour sur cet onglet, notamment après avoir lu
+  // des notifications dans l'écran dédié (voir notificationsCitizenScrenn.js).
+  useFocusEffect(
+    useCallback(() => {
+      let isMounted = true;
 
-    const loadNotifications = async () => {
-      try {
-        const data = await fetchNotifications();
-        if (isMounted && data) {
-          const count = Array.isArray(data) ? data.length : (data.count || 0);
-          setUnreadCount(count);
+      const loadNotifications = async () => {
+        try {
+          const token = await getActiveAccessToken();
+          const data = await fetchNotifications(token);
+          if (isMounted && data) {
+            const list = Array.isArray(data) ? data : (data.results || []);
+            const count = list.filter((n) => !n.is_read).length;
+            setUnreadCount(count);
+          }
+        } catch (error) {
+          // Échec silencieux pour la production
         }
-      } catch (error) {
-        // Échec silencieux pour la production
-      }
-    };
+      };
 
-    loadNotifications();
-    return () => { isMounted = false; };
-  }, []);
+      loadNotifications();
+      return () => { isMounted = false; };
+    }, [])
+  );
 
   return (
     <Tabs

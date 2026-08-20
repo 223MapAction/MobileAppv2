@@ -8,7 +8,7 @@ import { OfflineManager } from '../api/offlineManager';
 import AudioPlayer from '../Composants/AudioPlayer';
 import { COLORS } from '../Composants/themeConfig';
 import VideoPlayer from '../Composants/VideoPlayer';
-import { getAccessToken } from '../storage/authStorage';
+import { getActiveAccessToken } from '../hooks/usePushNotifications';
 
 const { width } = Dimensions.get('window');
 
@@ -38,7 +38,7 @@ export default function DetailIncidentScreen() {
           );
           setIncident(found);
         } else {
-          const token = await getAccessToken();
+          const token = await getActiveAccessToken();
 
           if (token) {
             const result = await getIncidentByIdOnline(id, token);

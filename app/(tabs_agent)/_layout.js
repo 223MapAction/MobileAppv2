@@ -1,10 +1,43 @@
 import { Ionicons } from '@expo/vector-icons'; // Inclus dans Expo
-import { Tabs } from 'expo-router';
-import { Image, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
+import { Tabs, useRouter } from 'expo-router';
+import { useCallback, useState } from 'react';
+import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { fetchNotifications } from '../../api/notificationCitizen';
 import mapActionLogo from "../../assets/LogoMapAction.png";
 import { COLORS } from '../../Composants/themeConfig';
+import { getActiveAccessToken } from '../../hooks/usePushNotifications';
 
 export default function TabLayout() {
+  const [unreadCount, setUnreadCount] = useState(0);
+  const router = useRouter();
+
+  // useFocusEffect (pas un simple useEffect) : la cloche doit se
+  // resynchroniser à chaque retour sur cet onglet, notamment après avoir lu
+  // des notifications dans l'écran dédié (voir notificationsCitizenScrenn.js).
+  useFocusEffect(
+    useCallback(() => {
+      let isMounted = true;
+
+      const loadNotifications = async () => {
+        try {
+          const token = await getActiveAccessToken();
+          const data = await fetchNotifications(token);
+          if (isMounted && data) {
+            const list = Array.isArray(data) ? data : (data.results || []);
+            const count = list.filter((n) => !n.is_read).length;
+            setUnreadCount(count);
+          }
+        } catch (error) {
+          // Échec silencieux pour la production
+        }
+      };
+
+      loadNotifications();
+      return () => { isMounted = false; };
+    }, [])
+  );
+
   return (
     <Tabs
       screenOptions={{
@@ -21,8 +54,18 @@ export default function TabLayout() {
         headerRight: () => (
           <View style={styles.headerRightContainer}>
             {/* BOUTON NOTIFICATION */}
-            <TouchableOpacity style={styles.headerButton}>
+            <TouchableOpacity
+              style={styles.headerButton}
+              onPress={() => router.push('/notificationsCitizenScrenn')}
+            >
               <Ionicons name="notifications-outline" size={24} color={COLORS.secondary} />
+              {unreadCount > 0 && (
+                <View style={styles.badge}>
+                  <Text style={styles.badgeText}>
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </Text>
+                </View>
+              )}
             </TouchableOpacity>
 
           </View>
@@ -65,5 +108,24 @@ const styles = StyleSheet.create({
     padding: 4,
     justifyContent: 'center',
     alignItems: 'center',
+    position: 'relative',
+  },
+  badge: {
+    position: 'absolute',
+    right: 1,
+    top: 1,
+    backgroundColor: '#FF3B30',
+    borderRadius: 8,
+    minWidth: 16,
+    height: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+  },
+  badgeText: {
+    color: 'white',
+    fontSize: 10,
+    fontWeight: 'bold',
+    textAlign: 'center',
   },
 });
