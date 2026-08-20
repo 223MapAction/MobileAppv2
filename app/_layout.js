@@ -27,10 +27,10 @@ export default function RootLayout() {
 
   usePushNotificationListeners();
 
-  // Ré-enregistre le token FCM au démarrage si une session citoyen existe
-  // déjà (relance de l'app) — après une connexion réussie, l'enregistrement
-  // se fait directement depuis l'écran de login (voir CodeConfirmation.js
-  // et services/googleAuth.js).
+  // Ré-enregistre le token FCM au démarrage si une session existe déjà
+  // (citoyen ou agent, relance de l'app) — après une connexion réussie,
+  // l'enregistrement se fait directement depuis l'écran de login (voir
+  // CodeConfirmation.js, services/googleAuth.js et AuthAgentTerrain.js).
   useEffect(() => {
     registerPushToken();
   }, []);

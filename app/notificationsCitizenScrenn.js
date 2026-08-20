@@ -1,9 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, RefreshControl, SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { fetchNotifications } from '../api/notificationCitizen';
+import { fetchNotifications, markNotificationAsRead } from '../api/notificationCitizen';
 import { COLORS } from '../Composants/themeConfig';
 import ScreenHeader from '../Composants/ScreenHeader';
+import { getActiveAccessToken } from '../hooks/usePushNotifications';
 
 export default function NotificationsCitizenScreen() {
   const [notifications, setNotifications] = useState([]);
@@ -13,7 +14,10 @@ export default function NotificationsCitizenScreen() {
   const loadNotifications = async (showLoader = false) => {
     if (showLoader) setIsLoading(true);
     try {
-      const data = await fetchNotifications();
+      // Ecran réutilisé pour citoyen et agent (voir (tabs_agent)/_layout.js) :
+      // on résout le token de la session active, peu importe le rôle.
+      const token = await getActiveAccessToken();
+      const data = await fetchNotifications(token);
       if (data) {
         const list = Array.isArray(data) ? data : (data.results || []);
         setNotifications([...list].reverse());
@@ -35,11 +39,31 @@ export default function NotificationsCitizenScreen() {
     loadNotifications(false);
   };
 
+  // Marque comme lu immédiatement dans l'UI (indépendamment de la
+  // persistance serveur, qui est best-effort) — la cloche des onglets se
+  // resynchronise toute seule au prochain focus (voir (tabs)/_layout.js et
+  // (tabs_agent)/_layout.js, useFocusEffect).
+  const handleOpenNotification = (item) => {
+    if (item.is_read) return;
+
+    setNotifications((prev) =>
+      prev.map((n) => (n.id === item.id ? { ...n, is_read: true } : n))
+    );
+
+    getActiveAccessToken().then((token) => {
+      markNotificationAsRead(item.id, token);
+    });
+  };
+
   const renderNotificationItem = ({ item }) => {
     const itemDate = item.created_at ? new Date(item.created_at).toLocaleDateString('fr-FR') : '';
 
     return (
-      <TouchableOpacity style={styles.card} activeOpacity={0.8}>
+      <TouchableOpacity
+        style={styles.card}
+        activeOpacity={0.8}
+        onPress={() => handleOpenNotification(item)}
+      >
         <View style={[styles.iconContainer, { backgroundColor: item.is_read ? '#F5F5F5' : COLORS.primary + '15' }]}>
           <Ionicons 
             name={item.is_read ? "mail-open-outline" : "mail-unread-outline"} 

@@ -1,14 +1,14 @@
-import { getAccessToken } from "../storage/authStorage";
 import { apiEndPoint } from "./apiUrl";
 
 /**
  * Enregistre le token FCM de l'appareil auprès du backend, pour recevoir
- * les notifications push (incident pris en compte / résolu). JWT requis.
- * POST et PUT font strictement la même chose côté backend.
+ * les notifications push (incident pris en compte / résolu). JWT requis
+ * (citoyen ou agent de terrain, l'endpoint n'est pas spécifique à un rôle
+ * — d'où le token passé explicitement plutôt que lu ici). POST et PUT
+ * font strictement la même chose côté backend.
  */
-export async function registerFcmToken(fcmToken) {
+export async function registerFcmToken(fcmToken, token) {
   try {
-    const token = await getAccessToken();
     if (!token) {
       return { ok: false, error: { message: "Session expirée. Veuillez vous reconnecter." } };
     }

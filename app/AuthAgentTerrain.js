@@ -18,6 +18,7 @@ import {
 import { loginAgent } from '../api/AuthAgent';
 import { COLORS } from '../Composants/themeConfig';
 import PhoneCountryInput from '../Composants/PhoneCountryInput';
+import { registerPushToken } from '../hooks/usePushNotifications';
 import { getAuthUser } from '../storage/authStorageAgent';
 
 export default function AuthAgentTerrain() {
@@ -65,7 +66,8 @@ export default function AuthAgentTerrain() {
     setLoading(false);
 
     if (result.ok) {
-      const { access, user } = result.data; 
+      const { access, user } = result.data;
+      registerPushToken();
 
       console.log("-> [CHECK] Faut-il changer le PIN ?", user.must_change_pin);
 
