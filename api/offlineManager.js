@@ -1,9 +1,14 @@
 import NetInfo from '@react-native-community/netinfo';
 import { envoyerIncident } from './incidents';
 import { readJsonArray, writeJsonArray } from './offlineQueueStorage';
+import { getZoneFromOSM } from '../services/general';
 import { ANONYMOUS_HISTORY_KEY, OFFLINE_QUEUE_KEY } from '../storage/storageKeys';
 
 let isSynchronizing = false;
+
+// Placeholders écrits par useIncidentLocation quand le géocodage inverse
+// échoue faute de réseau au moment du signalement hors-ligne.
+const isZoneUnresolved = (zone) => !zone || zone === 'Zone inconnue' || zone === 'Zone non récupérée';
 
 export const OfflineManager = {
 
@@ -118,6 +123,19 @@ export const OfflineManager = {
       
       for (const incident of queue) {
         const { id_local, isOffline, ...apiData } = incident;
+
+        // Zone captée hors-ligne = souvent un placeholder (pas de réseau au
+        // moment du géocodage inverse) : on retente maintenant qu'on est
+        // connecté, avant l'envoi, plutôt que de garder la valeur figée.
+        if (isZoneUnresolved(apiData.zone) && apiData.lattitude && apiData.longitude) {
+          const zoneRecuperee = await getZoneFromOSM(
+            parseFloat(apiData.lattitude),
+            parseFloat(apiData.longitude)
+          );
+          if (!isZoneUnresolved(zoneRecuperee)) {
+            apiData.zone = zoneRecuperee;
+          }
+        }
 
         // Envoi au serveur (Supabase)
         const result = await envoyerIncident(apiData);

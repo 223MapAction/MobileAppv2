@@ -1,9 +1,14 @@
 import NetInfo from '@react-native-community/netinfo';
 import { envoyerIncident } from './incidents';
 import { readJsonArray, writeJsonArray } from './offlineQueueStorage';
+import { getZoneFromOSM } from '../services/general';
 import { AGENT_OFFLINE_QUEUE_KEY } from '../storage/storageKeys';
 
 let isSynchronizing = false;
+
+// Placeholders écrits par useIncidentLocation quand le géocodage inverse
+// échoue faute de réseau au moment du signalement hors-ligne.
+const isZoneUnresolved = (zone) => !zone || zone === 'Zone inconnue' || zone === 'Zone non récupérée';
 
 export const OfflineManagerAgent = {
 
@@ -79,6 +84,19 @@ export const OfflineManagerAgent = {
       
       for (const incident of queue) {
         const { id_local, isOffline, agent_token, ...apiPayload } = incident;
+
+        // Zone captée hors-ligne = souvent un placeholder (pas de réseau au
+        // moment du géocodage inverse) : on retente maintenant qu'on est
+        // connecté, avant l'envoi, plutôt que de garder la valeur figée.
+        if (isZoneUnresolved(apiPayload.zone) && apiPayload.lattitude && apiPayload.longitude) {
+          const zoneRecuperee = await getZoneFromOSM(
+            parseFloat(apiPayload.lattitude),
+            parseFloat(apiPayload.longitude)
+          );
+          if (!isZoneUnresolved(zoneRecuperee)) {
+            apiPayload.zone = zoneRecuperee;
+          }
+        }
 
         // Inclusion explicite du token (2ème paramètre de envoyerIncident)
         const tokenToUse = agent_token || apiPayload.token;
