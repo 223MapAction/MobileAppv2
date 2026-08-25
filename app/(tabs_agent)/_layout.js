@@ -1,16 +1,23 @@
 import { Ionicons } from '@expo/vector-icons'; // Inclus dans Expo
 import { useFocusEffect } from '@react-navigation/native';
 import { Tabs, useRouter } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { fetchNotifications } from '../../api/notificationCitizen';
 import mapActionLogo from "../../assets/LogoMapAction.png";
 import { COLORS } from '../../Composants/themeConfig';
 import { getActiveAccessToken } from '../../hooks/usePushNotifications';
+import { getUnreadCount, setUnreadCount as setSharedUnreadCount, subscribeUnreadCount } from '../../services/notificationBadge';
 
 export default function TabLayout() {
-  const [unreadCount, setUnreadCount] = useState(0);
+  const [unreadCount, setUnreadCount] = useState(getUnreadCount());
   const router = useRouter();
+
+  // Reflète immédiatement la mise à jour optimiste faite par
+  // notificationsCitizenScrenn.js (marquage lu à la vue de la liste) sans
+  // attendre le prochain fetch ci-dessous, qui peut arriver avant que les
+  // PATCH is_read envoyés en arrière-plan n'aient atteint le serveur.
+  useEffect(() => subscribeUnreadCount(setUnreadCount), []);
 
   // useFocusEffect (pas un simple useEffect) : la cloche doit se
   // resynchroniser à chaque retour sur cet onglet, notamment après avoir lu
@@ -26,7 +33,7 @@ export default function TabLayout() {
           if (isMounted && data) {
             const list = Array.isArray(data) ? data : (data.results || []);
             const count = list.filter((n) => !n.is_read).length;
-            setUnreadCount(count);
+            setSharedUnreadCount(count);
           }
         } catch (error) {
           // Échec silencieux pour la production

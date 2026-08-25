@@ -5,6 +5,7 @@ import { fetchNotifications, markNotificationAsRead } from '../api/notificationC
 import { COLORS } from '../Composants/themeConfig';
 import ScreenHeader from '../Composants/ScreenHeader';
 import { getActiveAccessToken } from '../hooks/usePushNotifications';
+import { setUnreadCount } from '../services/notificationBadge';
 
 export default function NotificationsCitizenScreen() {
   const [notifications, setNotifications] = useState([]);
@@ -41,6 +42,10 @@ export default function NotificationsCitizenScreen() {
     if (unread.length === 0) return;
 
     setNotifications((prev) => prev.map((n) => (n.is_read ? n : { ...n, is_read: true })));
+    // Optimiste : la liste vient d'être vue en entier, la cloche des onglets
+    // n'a pas à attendre le prochain fetch (qui peut arriver avant que les
+    // PATCH ci-dessous n'aient atteint le serveur) pour refléter ça.
+    setUnreadCount(0);
 
     unread.forEach((n) => {
       markNotificationAsRead(n.id, token);
