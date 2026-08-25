@@ -39,7 +39,7 @@ export default function SignalerIncidentScreen() {
       idleLevels: [4, 4, 4, 4, 4],
       normalizeLevel: (metering) => Math.max(4, Math.min(35, (metering + 160) / 4)),
       maxLevelsCount: 18,
-      onLimitReached: () => Alert.alert("Limite atteinte", "L'enregistrement audio est limité à un maximum de 10 secondes."),
+      onLimitReached: () => Alert.alert("Limite atteinte", "L'enregistrement audio est limité à un maximum de 30 secondes."),
       startErrorMessage: "Impossible de démarrer l'enregistrement",
       stopErrorLogPrefix: 'Erreur arrêt enregistrement audio :',
     });
@@ -75,7 +75,7 @@ export default function SignalerIncidentScreen() {
     obtenirPosition();
   }, []);
 
-  // Sélection/Enregistrement Vidéo - Limité à 10 secondes max
+  // Sélection/Enregistrement Vidéo - Limité à 30 secondes max
   const handlePickVideo = async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') {
@@ -89,7 +89,7 @@ export default function SignalerIncidentScreen() {
         allowsEditing: true,
         aspect: [16, 9],
         quality: 0.5,
-        videoMaxDuration: 10, // Limite l'enregistrement caméra à 10 secondes max
+        videoMaxDuration: 30, // Limite l'enregistrement caméra à 30 secondes max
       });
 
       if (!result.canceled) {
@@ -97,10 +97,10 @@ export default function SignalerIncidentScreen() {
         const sourceUri = asset.uri;
         const durationMs = asset.duration;
 
-        if (durationMs && durationMs > 10500) {
+        if (durationMs && durationMs > 30500) {
           Alert.alert(
             "Vidéo trop longue",
-            `La vidéo sélectionnée fait ${(durationMs / 1000).toFixed(1)}s. Elle ne doit pas dépasser 10 secondes.`
+            `La vidéo sélectionnée fait ${(durationMs / 1000).toFixed(1)}s. Elle ne doit pas dépasser 30 secondes.`
           );
           return;
         }
@@ -239,7 +239,7 @@ export default function SignalerIncidentScreen() {
             ) : (
               <Ionicons name={videoUri ? "videocam" : "videocam-outline"} size={40} color={videoUri ? COLORS.primary : "gray"} />
             )}
-            <Text style={[styles.cardText, !videoUri && {color: 'gray'}]}>Vidéo  Max 10s</Text>
+            <Text style={[styles.cardText, !videoUri && {color: 'gray'}]}>Vidéo  Max 30s</Text>
             {videoUri && (
               <View style={styles.checkBadge}>
                 <Ionicons name="checkmark-circle" size={20} color={COLORS.primary} />
@@ -264,7 +264,7 @@ export default function SignalerIncidentScreen() {
 
         {/* ENREGISTREMENT VOCAL AVEC BOUTON SUPPRIMER */}
         <View style={styles.inputGroup}>
-          <Text style={styles.label}>Note vocale (Facultatif - Max 10s)</Text>
+          <Text style={styles.label}>Note vocale (Facultatif - Max 30s)</Text>
           <View style={[styles.actionRow, audioUri && {borderColor: COLORS.primary, borderWidth: 2}]}>
             <TouchableOpacity 
               style={styles.textContainer}

@@ -78,7 +78,7 @@ export default function SignalerIncidentScreen() {
         allowsEditing: true,
         aspect: [16, 9],
         quality: 0.7,
-        videoMaxDuration: 10,
+        videoMaxDuration: 30,
       });
 
       if (!result.canceled) {
@@ -86,10 +86,10 @@ export default function SignalerIncidentScreen() {
         const sourceUri = asset.uri;
         const durationMs = asset.duration;
 
-        if (durationMs && durationMs > 10500) {
+        if (durationMs && durationMs > 30500) {
           Alert.alert(
             "Vidéo trop longue",
-            `Votre vidéo fait ${(durationMs / 1000).toFixed(1)}s. La durée maximale autorisée est de 10 secondes. Veuillez recommencer.`
+            `Votre vidéo fait ${(durationMs / 1000).toFixed(1)}s. La durée maximale autorisée est de 30 secondes. Veuillez recommencer.`
           );
           return;
         }
@@ -225,7 +225,7 @@ export default function SignalerIncidentScreen() {
             ) : (
               <Ionicons name={videoUri ? "videocam" : "videocam-outline"} size={40} color={videoUri ? COLORS.primary : "gray"} />
             )}
-            <Text style={[styles.cardText, !videoUri && {color: 'gray'}]}>Vidéo (Max 10s)</Text>
+            <Text style={[styles.cardText, !videoUri && {color: 'gray'}]}>Vidéo (Max 30s)</Text>
             {videoUri && (
               <View style={styles.checkBadge}>
                 <Ionicons name="checkmark-circle" size={20} color={COLORS.primary} />
@@ -250,7 +250,7 @@ export default function SignalerIncidentScreen() {
 
         {/* COMPOSANT AUDIO SIMPLE ET INTEGRÉ */}
         <View style={styles.inputGroup}>
-          <Text style={styles.label}>Audio (Max 10s)</Text>
+          <Text style={styles.label}>Audio (Max 30s)</Text>
           <View style={[styles.audioContainer, audioUri && styles.audioContainerActive]}>
             {recording ? (
               // En cours d'enregistrement

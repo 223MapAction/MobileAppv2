@@ -2,9 +2,9 @@ import { Audio } from 'expo-av';
 import { useEffect, useRef, useState } from 'react';
 import { Alert } from 'react-native';
 
-const MAX_DURATION_MS = 10000;
+const MAX_DURATION_MS = 30000;
 
-// State machine d'enregistrement audio (plafond 10s) pour les écrans de
+// State machine d'enregistrement audio (plafond 30s) pour les écrans de
 // signalement d'incident. La courbe de niveau sonore et le nombre de barres
 // affichées sont volontairement réglés différemment entre citoyen et agent
 // (pur réglage visuel, pas une divergence de comportement), donc passés en
