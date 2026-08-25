@@ -63,6 +63,7 @@ export const OfflineManagerAgent = {
   syncPendingIncidents: async () => {
     // 🛡️ VERROU IMMÉDIAT (Lock synchrone avant tout "await")
     if (isSynchronizing) {
+      console.log('[Synchro Agent] Synchro déjà en cours, appel ignoré.');
       return;
     }
 
@@ -71,17 +72,20 @@ export const OfflineManagerAgent = {
     try {
       const state = await NetInfo.fetch();
       if (!state.isConnected) {
+        console.log('[Synchro Agent] Pas de connexion détectée (isConnected=false), synchro annulée.');
         return;
       }
 
       const queue = await readJsonArray(AGENT_OFFLINE_QUEUE_KEY);
       if (!Array.isArray(queue) || queue.length === 0) return;
 
+      console.log(`[Synchro Agent] Début du traitement pour ${queue.length} incident(s)...`);
+
       // ⚠️ PROTECTION ANTI-DOUBLON : Vider la file locale AVANT envoi
       await writeJsonArray(AGENT_OFFLINE_QUEUE_KEY, []);
 
       const failedIncidents = [];
-      
+
       for (const incident of queue) {
         const { id_local, isOffline, agent_token, ...apiPayload } = incident;
 
@@ -101,10 +105,14 @@ export const OfflineManagerAgent = {
         // Inclusion explicite du token (2ème paramètre de envoyerIncident)
         const tokenToUse = agent_token || apiPayload.token;
         const result = await envoyerIncident(apiPayload, tokenToUse);
-        
+
         if (result && (result.ok || result.status === 200 || result.status === 201)) {
-          // succès : rien à faire, l'incident n'est pas réinjecté
+          console.log(`[Synchro Agent] Incident "${apiPayload.title || id_local}" envoyé avec succès.`);
         } else {
+          console.warn(
+            `[Synchro Agent] Échec d'envoi pour l'incident "${apiPayload.title || id_local}" (statut ${result?.status ?? 'inconnu'}) :`,
+            result?.error
+          );
           failedIncidents.push(incident);
         }
       }
@@ -114,9 +122,13 @@ export const OfflineManagerAgent = {
         const currentQueue = await readJsonArray(AGENT_OFFLINE_QUEUE_KEY);
         const updatedQueue = [...currentQueue, ...failedIncidents];
         await writeJsonArray(AGENT_OFFLINE_QUEUE_KEY, updatedQueue);
+        console.log(`[Synchro Agent] Terminé. ${failedIncidents.length} incident(s) ont échoué et réessaieront plus tard.`);
+      } else {
+        console.log('[Synchro Agent] Succès ! Tous les incidents offline ont été synchronisés.');
       }
 
     } catch (error) {
+      console.error('[Synchro Agent] Erreur pendant la synchronisation :', error);
     } finally {
       isSynchronizing = false; // 🔓 Libération définitive du verrou
     }
