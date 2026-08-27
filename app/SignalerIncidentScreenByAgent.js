@@ -2,10 +2,8 @@ import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import NetInfo from '@react-native-community/netinfo';
 import { useRoute } from '@react-navigation/native';
 
-import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
-import * as VideoThumbnails from 'expo-video-thumbnails';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator, Alert, Dimensions, Image, ScrollView,
@@ -13,6 +11,7 @@ import {
 } from 'react-native';
 import { envoyerIncident } from "../api/incidents";
 import { OfflineManagerAgent } from '../api/OfflineManagerAgent';
+import VideoRecorderModal from '../Composants/VideoRecorderModal';
 import { COLORS } from '../Composants/themeConfig';
 import { useAudioRecorder } from '../hooks/useAudioRecorder';
 import { useIncidentLocation } from '../hooks/useIncidentLocation';
@@ -48,6 +47,7 @@ export default function SignalerIncidentScreen() {
   const [photoUri, setPhotoUri] = useState(initialPhoto);
   const [videoUri, setVideoUri] = useState(null);
   const [videoThumbnail, setVideoThumbnail] = useState(null);
+  const [showVideoRecorder, setShowVideoRecorder] = useState(false);
 
   // Charger les infos de l'agent connecté
   useEffect(() => {
@@ -75,48 +75,9 @@ export default function SignalerIncidentScreen() {
     obtenirPosition();
   }, []);
 
-  // Sélection/Enregistrement Vidéo - Limité à 30 secondes max
-  const handlePickVideo = async () => {
-    const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert("Permission", "Accès caméra requis pour la vidéo.");
-      return;
-    }
-
-    try {
-      let result = await ImagePicker.launchCameraAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Videos,
-        allowsEditing: true,
-        aspect: [16, 9],
-        quality: 0.5,
-        videoMaxDuration: 30, // Limite l'enregistrement caméra à 30 secondes max
-      });
-
-      if (!result.canceled) {
-        const asset = result.assets[0];
-        const sourceUri = asset.uri;
-        const durationMs = asset.duration;
-
-        if (durationMs && durationMs > 30500) {
-          Alert.alert(
-            "Vidéo trop longue",
-            `La vidéo sélectionnée fait ${(durationMs / 1000).toFixed(1)}s. Elle ne doit pas dépasser 30 secondes.`
-          );
-          return;
-        }
-
-        setVideoUri(sourceUri);
-
-        try {
-          const { uri } = await VideoThumbnails.getThumbnailAsync(sourceUri, { time: 1000 });
-          setVideoThumbnail(uri);
-        } catch (e) {
-          console.warn("Erreur génération vignette vidéo:", e);
-        }
-      }
-    } catch (err) {
-      Alert.alert("Erreur", "Impossible d'enregistrer la vidéo.");
-    }
+  const deleteVideo = () => {
+    setVideoUri(null);
+    setVideoThumbnail(null);
   };
 
   // Soumission finale de l'incident
@@ -229,9 +190,9 @@ export default function SignalerIncidentScreen() {
             )}
           </View>
 
-          <TouchableOpacity 
-            style={[styles.card, videoUri && styles.cardActive]} 
-            onPress={handlePickVideo}
+          <TouchableOpacity
+            style={[styles.card, videoUri && styles.cardActive]}
+            onPress={() => setShowVideoRecorder(true)}
             activeOpacity={0.8}
           >
             {videoThumbnail ? (
@@ -241,9 +202,14 @@ export default function SignalerIncidentScreen() {
             )}
             <Text style={[styles.cardText, !videoUri && {color: 'gray'}]}>Vidéo  Max 30s</Text>
             {videoUri && (
-              <View style={styles.checkBadge}>
-                <Ionicons name="checkmark-circle" size={20} color={COLORS.primary} />
-              </View>
+              <>
+                <View style={styles.checkBadge}>
+                  <Ionicons name="checkmark-circle" size={20} color={COLORS.primary} />
+                </View>
+                <TouchableOpacity style={styles.videoTrashBadge} onPress={deleteVideo}>
+                  <Ionicons name="trash-outline" size={18} color="#e74c3c" />
+                </TouchableOpacity>
+              </>
             )}
           </TouchableOpacity>
         </View>
@@ -347,6 +313,17 @@ export default function SignalerIncidentScreen() {
         </TouchableOpacity>
 
       </ScrollView>
+
+      <VideoRecorderModal
+        visible={showVideoRecorder}
+        maxDuration={30}
+        onClose={() => setShowVideoRecorder(false)}
+        onConfirm={(uri, thumbnail) => {
+          setVideoUri(uri);
+          setVideoThumbnail(thumbnail);
+          setShowVideoRecorder(false);
+        }}
+      />
     </View>
   );
 }
@@ -363,6 +340,7 @@ const styles = StyleSheet.create({
   cardImage: { ...StyleSheet.absoluteFillObject, resizeMode: 'cover' },
   cardText: { marginTop: 10, fontWeight: '600', fontSize: 15, color: COLORS.primary },
   checkBadge: { position: 'absolute', top: 8, right: 8, backgroundColor: 'white', borderRadius: 12 },
+  videoTrashBadge: { position: 'absolute', top: 8, left: 8, backgroundColor: 'white', borderRadius: 12, padding: 4 },
   inputGroup: { marginBottom: 20 },
   label: { fontSize: 15, fontWeight: '600', color: COLORS.secondary || '#2c3e50', marginBottom: 8 },
   textArea: { backgroundColor: 'white', borderRadius: 12, padding: 15, height: 100, borderColor: COLORS.gray2 || '#f5f6fa', borderWidth: 1, fontSize: 16 },
