@@ -42,6 +42,14 @@ export default function LoginScreen() {
 
   const clerk = useClerk();
 
+  // isLoaded (Clerk) ne doit bloquer QUE l'auth Google, qui a réellement
+  // besoin de Clerk. L'OTP téléphone et le mode anonyme n'en dépendent pas :
+  // un "return null" tant que !isLoaded bloquait tout l'écran sur du blanc
+  // pendant ~10s hors-ligne (Clerk tente de joindre son serveur avant
+  // d'abandonner tout seul), y compris pour un citoyen qui n'a même pas
+  // besoin de Google pour se connecter.
+  const googleSignInDisabled = loading || !isLoaded;
+
   const handleGoogleSignIn = async () => {
     setLoading(true);
     try {
@@ -70,11 +78,6 @@ export default function LoginScreen() {
     }
   };
 
-  if (!isLoaded) {
-    return null; 
-  }
-
-    
   const handleAuth = async () => {
     const cleanedNumber = phoneNumber.trim();
     const isValidMaliNumber = /^\d{8}$/.test(cleanedNumber);
@@ -156,10 +159,10 @@ export default function LoginScreen() {
           <View style={styles.line} />
         </View>
 
-        <TouchableOpacity 
-          style={styles.socialButton} 
+        <TouchableOpacity
+          style={[styles.socialButton, googleSignInDisabled && { opacity: 0.5 }]}
           onPress={handleGoogleSignIn}
-          disabled={loading}
+          disabled={googleSignInDisabled}
         >
           <FontAwesome name="google" size={20} color="#DB4437" />
           <Text style={styles.socialButtonText}>
