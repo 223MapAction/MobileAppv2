@@ -12,6 +12,7 @@ import { useRouter } from 'expo-router';
 import * as Notifications from 'expo-notifications';
 import { useEffect } from 'react';
 import { Platform } from 'react-native';
+import { getAssignedIncidents } from '../api/AgentIncidents';
 import { registerFcmToken } from '../api/notificationsPush';
 import { getAccessToken } from '../storage/authStorage';
 import { getAuthToken as getAgentAccessToken } from '../storage/authStorageAgent';
@@ -92,11 +93,46 @@ async function showForegroundNotification(remoteMessage) {
   });
 }
 
-function openIncidentFromMessage(router, remoteMessage) {
-  const incidentId = remoteMessage?.data?.incident_id;
-  if (incidentId) {
-    router.push({ pathname: '/DetailIncidentScreen', params: { id: incidentId } });
+// Notif de mission agent (assignment_id présent) : DetailIncidentAssigner
+// n'a pas de fetch propre, il attend le détail complet en paramètre
+// (cf. assigner.js) — on le retrouve via la liste des missions assignées,
+// il n'existe pas d'endpoint "un seul incident" côté agent.
+async function openAgentAssignment(router, incidentId) {
+  try {
+    const agentToken = await getAgentAccessToken();
+    if (!agentToken) return false;
+
+    const result = await getAssignedIncidents(agentToken);
+    if (!result.ok) return false;
+
+    const match = result.data?.find((item) => String(item.id) === String(incidentId));
+    if (!match) return false;
+
+    router.push({
+      pathname: '/DetailIncidentAssigner',
+      params: {
+        id: match.id,
+        incident_title: match.incident_title || 'Incident sans titre',
+        fromAssignment: 'true',
+        incident_detail: JSON.stringify(match.incident_detail || {}),
+      },
+    });
+    return true;
+  } catch (_error) {
+    return false;
   }
+}
+
+async function navigateFromNotificationData(router, data) {
+  const incidentId = data?.incident_id;
+  if (!incidentId) return;
+
+  if (data?.assignment_id) {
+    const opened = await openAgentAssignment(router, incidentId);
+    if (opened) return;
+  }
+
+  router.push({ pathname: '/DetailIncidentScreen', params: { id: incidentId } });
 }
 
 /**
@@ -124,20 +160,17 @@ export function usePushNotificationListeners() {
 
     // Tap sur une notification alors que l'app tournait en arrière-plan
     const unsubscribeOpenedApp = onNotificationOpenedApp(messagingInstance, (remoteMessage) => {
-      openIncidentFromMessage(router, remoteMessage);
+      navigateFromNotificationData(router, remoteMessage?.data);
     });
 
     // App ouverte directement depuis une notification (était fermée)
     getInitialNotification(messagingInstance).then((remoteMessage) => {
-      if (remoteMessage) openIncidentFromMessage(router, remoteMessage);
+      if (remoteMessage) navigateFromNotificationData(router, remoteMessage.data);
     });
 
     // Tap sur la notification locale affichée quand l'app était au premier plan
     const responseSub = Notifications.addNotificationResponseReceivedListener((response) => {
-      const incidentId = response.notification.request.content.data?.incident_id;
-      if (incidentId) {
-        router.push({ pathname: '/DetailIncidentScreen', params: { id: incidentId } });
-      }
+      navigateFromNotificationData(router, response.notification.request.content.data);
     });
 
     return () => {

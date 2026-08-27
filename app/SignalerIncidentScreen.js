@@ -184,7 +184,7 @@ export default function SignalerIncidentScreen() {
             ) : (
               <Ionicons name={videoUri ? "videocam" : "videocam-outline"} size={40} color={videoUri ? COLORS.primary : "gray"} />
             )}
-            <Text style={[styles.cardText, !videoUri && {color: 'gray'}]}>Vidéo (Max 10s)</Text>
+            <Text style={[styles.cardText, !videoUri && {color: 'gray'}]}>Vidéo (Max 30s)</Text>
             {videoUri && (
               <>
                 <View style={styles.checkBadge}>
@@ -214,7 +214,7 @@ export default function SignalerIncidentScreen() {
 
         {/* COMPOSANT AUDIO SIMPLE ET INTEGRÉ */}
         <View style={styles.inputGroup}>
-          <Text style={styles.label}>Audio (Max 10s)</Text>
+          <Text style={styles.label}>Audio (Max 30s)</Text>
           <View style={[styles.audioContainer, audioUri && styles.audioContainerActive]}>
             {recording ? (
               // En cours d'enregistrement
@@ -288,7 +288,7 @@ export default function SignalerIncidentScreen() {
 
       <VideoRecorderModal
         visible={showVideoRecorder}
-        maxDuration={10}
+        maxDuration={30}
         onClose={() => setShowVideoRecorder(false)}
         onConfirm={(uri, thumbnail) => {
           setVideoUri(uri);

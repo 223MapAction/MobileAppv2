@@ -5,6 +5,7 @@ import { fetchNotifications, markNotificationAsRead } from '../api/notificationC
 import { COLORS } from '../Composants/themeConfig';
 import ScreenHeader from '../Composants/ScreenHeader';
 import { getActiveAccessToken } from '../hooks/usePushNotifications';
+import { setUnreadCount } from '../services/notificationBadge';
 
 export default function NotificationsCitizenScreen() {
   const [notifications, setNotifications] = useState([]);
@@ -20,7 +21,9 @@ export default function NotificationsCitizenScreen() {
       const data = await fetchNotifications(token);
       if (data) {
         const list = Array.isArray(data) ? data : (data.results || []);
-        setNotifications([...list].reverse());
+        const ordered = [...list].reverse();
+        setNotifications(ordered);
+        markAllAsRead(ordered, token);
       }
     } catch (error) {
       // Échec silencieux en production
@@ -28,6 +31,25 @@ export default function NotificationsCitizenScreen() {
       setIsLoading(false);
       setIsRefreshing(false);
     }
+  };
+
+  // Voir la liste suffit à "consommer" les notifs affichées — le badge de
+  // la cloche (compté sur is_read côté (tabs)/_layout.js et
+  // (tabs_agent)/_layout.js) ne doit remonter que pour de vraies nouvelles
+  // notifs reçues après cette visite, pas pour celles déjà vues ici.
+  const markAllAsRead = (list, token) => {
+    const unread = list.filter((n) => !n.is_read);
+    if (unread.length === 0) return;
+
+    setNotifications((prev) => prev.map((n) => (n.is_read ? n : { ...n, is_read: true })));
+    // Optimiste : la liste vient d'être vue en entier, la cloche des onglets
+    // n'a pas à attendre le prochain fetch (qui peut arriver avant que les
+    // PATCH ci-dessous n'aient atteint le serveur) pour refléter ça.
+    setUnreadCount(0);
+
+    unread.forEach((n) => {
+      markNotificationAsRead(n.id, token);
+    });
   };
 
   useEffect(() => {
